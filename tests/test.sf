@@ -1,0 +1,5 @@
+abc = 123
+def = "Hello, World!"
+
+write("Hello, World!", abc, def)
+input("Name: ")
