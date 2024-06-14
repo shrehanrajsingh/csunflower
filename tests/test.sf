@@ -1,5 +1,20 @@
-abc = 123
-def = "Hello, World!"
+if 1
+    if 2
+        ghi = 10
+        kkk = 30
+    else
+        hh = 10
+        i = 30
+    
+    write("Hello, World!")
+    abc = 1234
 
-write("Hello, World!", abc, def)
-input("Name: ")
+else if 2
+    write("2")
+    test = 900
+
+else
+    write("Bye")
+    a = 1
+    
+b = 3

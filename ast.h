@@ -22,6 +22,9 @@ enum
   STMT_FUN_CALL = 1,
   STMT_FUN_DECL = 2,
   STMT_COMMENT = 3,
+  STMT_IF_BLOCK = 4,
+  STMT_ELSEIF_BLOCK = 5,
+  STMT_ELSE_BLOCK = 6,
 };
 
 enum
@@ -87,6 +90,22 @@ struct _stmt_s
       sf_charptr v;
 
     } stmt_cmt;
+
+    struct
+    {
+      struct _expr_s *cond;
+
+      struct _stmt_s *body;
+      size_t body_count;
+
+    } blk_if, blk_elseif;
+
+    struct
+    {
+      struct _stmt_s *body;
+      size_t body_count;
+
+    } blk_else;
 
   } v;
 };

@@ -2,6 +2,22 @@
 
 stmt_t _sf_stmt_vdgen (tok_t *_arr, size_t _idx, size_t *_jumper);
 stmt_t _sf_stmt_fcgen (tok_t *_arr, size_t _idx, size_t *_jumper);
+stmt_t _sf_stmt_ifblockgen (tok_t *_arr, size_t _idx, size_t *_jumper);
+stmt_t _sf_stmt_elseblockgen (tok_t *_arr, size_t _idx, size_t *_jumper);
+stmt_t _sf_stmt_elseifblockgen (tok_t *_arr, size_t _idx, size_t *_jumper);
+
+/**
+ * Function returns _arr + _C
+ * _C is an integer which refers to the index where the block
+ * has ended.
+ * Returns the index where block has ended for the first time.
+ */
+tok_t *_sf_stmt_getblkend (tok_t *_arr, size_t _tabspace);
+
+/**
+ * Returns the indentation of the token _arr[_idx]
+ */
+size_t _sf_stmt_gettbsp (tok_t *_arr, size_t _idx);
 
 SF_API stmt_t *
 sf_ast_stmtgen (tok_t *arr, size_t *sptr)
@@ -35,6 +51,42 @@ sf_ast_stmtgen (tok_t *arr, size_t *sptr)
               }
           }
           break;
+        case TOK_IDENTIFIER:
+          {
+            if (c.v.t_ident.is_reserved)
+              {
+                sf_charptr cv = c.v.t_ident.v;
+
+                if (sf_str_eq_rCp (cv, "if"))
+                  {
+                    stmt_t t = _sf_stmt_ifblockgen (arr, i, &i);
+
+                    res = sfrealloc (res, (rc + 1) * sizeof (*res));
+                    res[rc++] = t;
+                  }
+
+                else if (sf_str_eq_rCp (cv, "else"))
+                  {
+                    stmt_t t;
+
+                    if (arr[i + 1].type == TOK_IDENTIFIER
+                        && sf_str_eq_rCp (
+                            arr[i + 1].v.t_ident.v,
+                            "if")) // .is_reserved is always 1 here
+                      {
+                        t = _sf_stmt_elseifblockgen (arr, i, &i);
+                      }
+                    else
+                      {
+                        t = _sf_stmt_elseblockgen (arr, i, &i);
+                      }
+
+                    res = sfrealloc (res, (rc + 1) * sizeof (*res));
+                    res[rc++] = t;
+                  }
+              }
+          }
+          break;
 
         default:
           break;
@@ -55,6 +107,8 @@ SF_API expr_t
 sf_ast_exprgen (tok_t *arr, size_t len)
 {
   expr_t res;
+  res.type = -1;
+
   size_t i = 0;
 
   while (i < len)
@@ -175,6 +229,8 @@ _sf_stmt_vdgen (tok_t *arr, size_t idx, size_t *jptr)
   *res.v.var_decl.val = sf_ast_exprgen (arr + idx + 1, rsi - idx - 1);
 
   // here;
+  assert (res.v.var_decl.name->type != -1);
+  assert (res.v.var_decl.val->type != -1);
 
   if (jptr != NULL)
     {
@@ -290,6 +346,179 @@ _sf_stmt_fcgen (tok_t *arr, size_t idx, size_t *jptr)
   return res;
 }
 
+stmt_t
+_sf_stmt_ifblockgen (tok_t *arr, size_t idx, size_t *jptr)
+{
+  stmt_t res;
+  res.type = STMT_IF_BLOCK;
+
+  size_t cei = 0; // condition end index
+  int gb = 0;
+
+  for (size_t i = idx + 1; arr[i].type != TOK_EOF; i++)
+    {
+      tok_t c = arr[i];
+
+      if (c.type == TOK_NEWLINE && !gb)
+        {
+          cei = i;
+          break;
+        }
+
+      if (c.type == TOK_OPERATOR)
+        {
+          if (sf_str_inStr ("({[", c.v.t_op.v))
+            gb++;
+          else if (sf_str_inStr (")}]", c.v.t_op.v))
+            gb--;
+        }
+    }
+
+  assert (cei); // Syntax error
+
+  res.v.blk_if.cond = sfmalloc (sizeof (expr_t));
+  *res.v.blk_if.cond = sf_ast_exprgen (arr + idx + 1, cei - idx - 1);
+
+  tok_t *body_end
+      = _sf_stmt_getblkend (arr + cei, _sf_stmt_gettbsp (arr, idx));
+
+  tok_t pres_end = *body_end;
+  *body_end = (tok_t){
+    .type = TOK_EOF,
+  }; // end file at end of block (temporarily)
+
+  size_t sts = 0; // statement tree size
+  stmt_t *stree = sf_ast_stmtgen (arr + cei, &sts);
+
+  *body_end = pres_end;
+  res.v.blk_if.body = stree;
+  res.v.blk_if.body_count = sts;
+
+end:
+  if (jptr != NULL)
+    {
+      *jptr = (body_end - arr) - 1;
+    }
+
+  return res;
+}
+
+stmt_t
+_sf_stmt_elseifblockgen (tok_t *arr, size_t idx, size_t *jptr)
+{
+  stmt_t p = _sf_stmt_ifblockgen (arr, idx + 1, jptr);
+  stmt_t res;
+
+  res.type = STMT_ELSEIF_BLOCK;
+  res.v.blk_elseif.body = p.v.blk_if.body;
+  res.v.blk_elseif.body_count = p.v.blk_if.body_count;
+  res.v.blk_elseif.cond = p.v.blk_if.cond;
+
+  return res;
+}
+
+stmt_t
+_sf_stmt_elseblockgen (tok_t *arr, size_t idx, size_t *jptr)
+{
+  stmt_t res;
+  res.type = STMT_ELSE_BLOCK;
+
+  tok_t *body_end
+      = _sf_stmt_getblkend (arr + idx + 1, _sf_stmt_gettbsp (arr, idx));
+
+  tok_t pres_end = *body_end;
+  *body_end = (tok_t){
+    .type = TOK_EOF,
+  };
+
+  size_t sts = 0;
+  stmt_t *stree = sf_ast_stmtgen (arr + idx + 1, &sts);
+
+  *body_end = pres_end;
+  res.v.blk_else.body = stree;
+  res.v.blk_else.body_count = sts;
+
+end:
+  if (jptr != NULL)
+    {
+      *jptr = (body_end - arr) - 1;
+    }
+
+  return res;
+}
+
+size_t
+_sf_stmt_gettbsp (tok_t *arr, size_t idx)
+{
+  size_t r = 0;
+  int gb = 0;
+
+  for (int i = (int)idx; i >= 0; i--)
+    {
+      tok_t c = arr[i];
+
+      if (c.type == TOK_NEWLINE && !gb)
+        {
+          break;
+        }
+
+      if (c.type == TOK_SPACE && !gb)
+        {
+          r = (size_t)c.v.t_space.v;
+          break;
+        }
+
+      if (c.type == TOK_OPERATOR)
+        {
+          if (sf_str_inStr ("({[", c.v.t_op.v))
+            gb++;
+          else if (sf_str_inStr (")}]", c.v.t_op.v))
+            gb--;
+        }
+    }
+
+  return r;
+}
+
+tok_t *
+_sf_stmt_getblkend (tok_t *arr, size_t tbs)
+{
+  // printf ("(%d)\n", tbs);
+  int gb = 0;
+  int saw_nl = 0;
+
+  size_t i;
+  for (i = 0; arr[i].type != TOK_EOF; i++)
+    {
+      tok_t c = arr[i];
+
+      if (c.type != TOK_SPACE && saw_nl)
+        break;
+
+      if (c.type == TOK_NEWLINE && !gb)
+        saw_nl = 1;
+
+      if (c.type == TOK_SPACE && !gb)
+        {
+          saw_nl = 0;
+          if (c.v.t_space.v <= tbs)
+            {
+              break;
+            }
+        }
+
+      if (c.type == TOK_OPERATOR)
+        {
+          if (sf_str_inStr ("({[", c.v.t_op.v))
+            gb++;
+          else if (sf_str_inStr (")}]", c.v.t_op.v))
+            gb--;
+        }
+    }
+
+  return arr + i;
+}
+
 SF_API void
 sf_ast_exprprint (expr_t e)
 {
@@ -396,6 +625,51 @@ sf_ast_stmtprint (stmt_t s)
         for (size_t i = 0; i < s.v.fun_decl.body_count; i++)
           {
             sf_ast_stmtprint (s.v.fun_decl.body[i]);
+          }
+      }
+      break;
+
+    case STMT_IF_BLOCK:
+      {
+        printf ("if_block\n");
+
+        printf ("condition\n");
+        sf_ast_exprprint (*s.v.blk_if.cond);
+
+        printf ("body %d\n", s.v.blk_if.body_count);
+        for (size_t i = 0; i < s.v.blk_if.body_count; i++)
+          {
+            printf ("(%d) ", i);
+            sf_ast_stmtprint (s.v.blk_if.body[i]);
+          }
+      }
+      break;
+
+    case STMT_ELSEIF_BLOCK:
+      {
+        printf ("elseif_block\n");
+
+        printf ("condition\n");
+        sf_ast_exprprint (*s.v.blk_elseif.cond);
+
+        printf ("body %d\n", s.v.blk_elseif.body_count);
+        for (size_t i = 0; i < s.v.blk_elseif.body_count; i++)
+          {
+            printf ("(%d) ", i);
+            sf_ast_stmtprint (s.v.blk_elseif.body[i]);
+          }
+      }
+      break;
+
+    case STMT_ELSE_BLOCK:
+      {
+        printf ("else_block\n");
+
+        printf ("body %d\n", s.v.blk_else.body_count);
+        for (size_t i = 0; i < s.v.blk_else.body_count; i++)
+          {
+            printf ("(%d) ", i);
+            sf_ast_stmtprint (s.v.blk_else.body[i]);
           }
       }
       break;
