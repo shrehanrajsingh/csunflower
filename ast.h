@@ -25,6 +25,8 @@ enum
   STMT_IF_BLOCK = 4,
   STMT_ELSEIF_BLOCK = 5,
   STMT_ELSE_BLOCK = 6,
+  STMT_FOR_BLOCK = 7,
+  STMT_OPEQ = 8, /* +=, -=, *=, /= */
 };
 
 enum
@@ -33,6 +35,14 @@ enum
   EXPR_FUN_CALL = 1,
   EXPR_VAR_DECL = 2, /* a = (b = 10) --> expression */
   EXPR_VAR = 3,
+  EXPR_CONDITIONAL_EQEQ = 4,
+  EXPR_CONDITIONAL_NEQ = 5,
+  EXPR_CONDITIONAL_GT = 6,
+  EXPR_CONDITIONAL_LT = 7,
+  EXPR_CONDITIONAL_GTEQ = 8,
+  EXPR_CONDITIONAL_LTEQ = 9,
+  EXPR_TOSTEP = 10,
+  EXPR_INCLAUSE = 11,
 };
 
 enum
@@ -93,19 +103,30 @@ struct _stmt_s
 
     struct
     {
+
       struct _expr_s *cond;
 
       struct _stmt_s *body;
       size_t body_count;
 
-    } blk_if, blk_elseif;
+    } blk_if, blk_elseif, blk_for;
 
     struct
     {
+
       struct _stmt_s *body;
       size_t body_count;
 
     } blk_else;
+
+    struct
+    {
+
+      struct _expr_s *name;
+      struct _expr_s *val;
+      sf_charptr op;
+
+    } opeq_decl;
 
   } v;
 };
@@ -170,6 +191,31 @@ struct _expr_s
     {
       sf_charptr name;
     } var;
+
+    struct
+    {
+
+      struct _expr_s *lval;
+      struct _expr_s *rval;
+
+    } expr_conditional;
+
+    struct
+    {
+
+      struct _expr_s *lval;
+      struct _expr_s *rval;
+      struct _expr_s *e_step;
+
+    } to_step;
+
+    struct
+    {
+
+      struct _expr_s *lval;
+      struct _expr_s *rval;
+
+    } in_clause;
 
   } v;
 };

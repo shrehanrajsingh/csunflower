@@ -109,3 +109,27 @@ sf_str_unescape (sf_charptr *t)
   p[j++] = '\0';
   *t = sfrealloc (*t, j * sizeof (**t));
 }
+
+SF_API int
+sf_str_startswith (sf_charptr s, const char *ss)
+{
+  size_t sl = strlen (s);
+  size_t ssl = strlen (ss);
+
+  if (sl < ssl)
+    return 0;
+
+  return !strncmp (s, ss, ssl);
+}
+
+SF_API int
+sf_str_endswith (sf_charptr s, const char *ss)
+{
+  size_t sl = strlen (s);
+  size_t ssl = strlen (ss);
+
+  if (sl < ssl)
+    return 0;
+
+  return !strcmp (s + sl - ssl, ss);
+}

@@ -4,7 +4,7 @@
 #include "sfmem.h"
 
 #ifndef SFCPTR_TOSTR
-#define SFCPTR_TOSTR(X) X
+#define SFCPTR_TOSTR(X) ((char *)X)
 #endif
 
 #ifdef __cplusplus
@@ -26,6 +26,9 @@ extern "C"
   SF_API sf_charptr sf_str_copy (sf_charptr _Source);
 
   SF_API void sf_str_unescape (sf_charptr *_Target);
+
+  SF_API int sf_str_startswith (sf_charptr _Str, const char *_SubStr);
+  SF_API int sf_str_endswith (sf_charptr _Str, const char *_SubStr);
 
 #ifdef __cplusplus
 }

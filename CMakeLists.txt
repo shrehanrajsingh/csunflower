@@ -12,6 +12,9 @@ add_library(sunflower
     sfstr.h sfstr.c
     trie.h trie.c
     sfmod.h sfmod.c
+    objtable.h objtable.c
+    llist.h llist.c
+    parser.h parser.c
     header.h
 )
 
