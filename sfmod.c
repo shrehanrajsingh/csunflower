@@ -1,12 +1,24 @@
 #include "sfmod.h"
 
-SF_API llnode_t *
-sf_mod_addVar (mod_t *mod, char *name, obj_t *ref)
+SF_API mod_t *
+sf_mod_new (int type, mod_t *parent)
 {
-  llnode_t *r = sf_ot_addobj (ref);
+  mod_t *m = sfmalloc (sizeof (*m));
+  m->type = type;
+  m->body = NULL;
+  m->body_len = 0;
+  m->parent = parent;
+  m->retv = NULL;
+  m->vtable = sf_trie_new ();
 
-  sf_trie_add (mod->vtable, sfstrdup (name), (void *)r);
-  obj_t *rt = sf_ll_set_meta_refcount (r, r->meta.ref_count + 1);
+  return m;
+}
+
+SF_API llnode_t *
+sf_mod_addVar (mod_t *mod, char *name, llnode_t *ref)
+{
+  sf_trie_add (mod->vtable, sfstrdup (name), (void *)ref);
+  obj_t *rt = sf_ll_set_meta_refcount (ref, ref->meta.ref_count + 1);
 
   if (rt != NULL)
     {
@@ -15,7 +27,7 @@ sf_mod_addVar (mod_t *mod, char *name, obj_t *ref)
       // Free rt now
     }
 
-  return r;
+  return ref;
 }
 
 SF_API llnode_t *
@@ -27,7 +39,7 @@ sf_mod_getVar (mod_t *mod, const char *name)
       return NULL;
     }
 
-  llnode_t *res = sf_trie_getVal (mod->vtable, name);
+  llnode_t *res = sf_trie_getVal (mod->vtable, (char *)name);
 
   if (res == NULL)
     return sf_mod_getVar (mod->parent, name);
@@ -47,6 +59,8 @@ sf_mod_free (mod_t *mod)
 
       sffree (allkeys[i]);
     }
+
+  sf_ll_set_meta_refcount (mod->retv, mod->retv->meta.ref_count - 1);
 
   sf_trie_free (mod->vtable);
   sffree (mod);

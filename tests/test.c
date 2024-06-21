@@ -181,11 +181,34 @@ test4 ()
     }
 }
 
+void
+test5 ()
+{
+  char *cont = readfile ("../../tests/test.sf");
+
+  tok_t *t = sf_tokenizer_gen (cont);
+  size_t sptr = 0;
+  stmt_t *st = sf_ast_stmtgen (t, &sptr);
+
+  mod_t *m = sf_mod_new (MOD_TYPE_FILE, NULL);
+  m->body = st;
+  m->body_len = sptr;
+
+  sf_parser_exec (m);
+
+  char **k = sf_trie_getKeys (m->vtable);
+
+  for (size_t i = 0; k[i] != NULL; i++)
+    {
+      printf ("%s\n", k[i]);
+    }
+}
+
 int
 main (int argc, char const *argv[])
 {
   sf_ot_init ();
-  TEST (3);
+  TEST (5);
 
   return printf ("Program ended.\n") && 0;
 }

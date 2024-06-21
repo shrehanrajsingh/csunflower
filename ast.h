@@ -45,7 +45,7 @@ enum
   EXPR_INCLAUSE = 11,
 };
 
-enum
+enum // Used for both constant types for expr and obj_t
 {
   CONST_INT = 0,
   CONST_FLOAT = 1,

@@ -31,7 +31,7 @@ struct _mod_s
   stmt_t *body;    // body of the mod
   size_t body_len; // length of the body
 
-  obj_t *retv; // return value of the mod (return value of a function)
+  llnode_t *retv; // return value of the mod (return value of a function)
   struct _mod_s *parent; // parent mod
 };
 
@@ -43,14 +43,24 @@ extern "C"
 #endif
 
   /**
+   * Creates a new mod_t object.
+   *
+   * @param _Type The type of the mod_t object.
+   * @param _Parent The parent mod_t object.
+   * @return A pointer to the newly created mod_t object.
+   */
+  SF_API mod_t *sf_mod_new (int _Type, mod_t *_Parent);
+
+  /**
    * Adds a variable to the given module.
    *
    * @param _Mod The module to add the variable to.
    * @param _Name The name of the variable.
-   * @param _Ref The reference to the object associated with the variable.
+   * @param _Ref The reference to the memory node of the object associated with
+   * the variable.
    * @return A pointer to the newly added llnode_t structure.
    */
-  SF_API llnode_t *sf_mod_addVar (mod_t *_Mod, char *_Name, obj_t *_Ref);
+  SF_API llnode_t *sf_mod_addVar (mod_t *_Mod, char *_Name, llnode_t *_Ref);
 
   /**
    * Retrieves a variable from a module.

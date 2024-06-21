@@ -10,12 +10,19 @@
 #include "tokenizer.h"
 #include "trie.h"
 
+struct _parser_ret_s
+{
+  int i;
+};
+
+typedef struct _parser_ret_s parser_rt;
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-  // TODO
+  SF_API parser_rt sf_parser_exec (mod_t *_Mod);
 
 #ifdef __cplusplus
 }

@@ -15,6 +15,7 @@ add_library(sunflower
     objtable.h objtable.c
     llist.h llist.c
     parser.h parser.c
+    function.h function.c
     header.h
 )
 

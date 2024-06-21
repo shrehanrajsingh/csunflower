@@ -4,6 +4,7 @@
 #include "header.h"
 #include "llist.h"
 #include "objtable.h"
+#include "parser.h"
 #include "sfmem.h"
 #include "sfmod.h"
 #include "sfstr.h"
