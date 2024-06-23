@@ -1,4 +1,5 @@
 #include "llist.h"
+#include "objtable.h"
 
 SF_API llnode_t *
 sf_ll_new (void *val, llnode_t *prev, llnode_t *nxt)
@@ -111,12 +112,13 @@ sf_ll_getnode_fromval (llnode_t *top, void *val, int (*cmrt) (void *, void *))
   return NULL;
 }
 
-SF_API struct _obj_s *
+SF_API void
 sf_ll_set_meta_refcount (llnode_t *node, int nval)
 {
   node->meta.ref_count = nval;
 
-  // TODO: check for .ref_count == 0; if yes then unlink and return obj_t*
-
-  return NULL;
+  if (node->meta.ref_count < 1)
+    {
+      sf_ot_removeobj (node);
+    }
 }

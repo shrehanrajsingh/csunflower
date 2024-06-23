@@ -17,15 +17,17 @@ sf_mod_new (int type, mod_t *parent)
 SF_API llnode_t *
 sf_mod_addVar (mod_t *mod, char *name, llnode_t *ref)
 {
-  sf_trie_add (mod->vtable, sfstrdup (name), (void *)ref);
-  obj_t *rt = sf_ll_set_meta_refcount (ref, ref->meta.ref_count + 1);
+  llnode_t *l = sf_mod_getVar (mod, name);
 
-  if (rt != NULL)
+  if (l != NULL)
     {
-      // TODO
-      // Node was unlinked from memory
-      // Free rt now
+      sf_ll_set_meta_refcount (l, l->meta.ref_count - 1);
     }
+
+  sf_trie_add (mod->vtable, name, (void *)ref);
+  sf_ll_set_meta_refcount (ref, ref->meta.ref_count + 1);
+
+  // printf ("%d\n", ref->meta.ref_count);
 
   return ref;
 }

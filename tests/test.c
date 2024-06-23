@@ -181,6 +181,24 @@ test4 ()
     }
 }
 
+llnode_t *
+put_fun_rt (mod_t *mod)
+{
+  obj_t *arg = sf_mod_getVar (mod, "arg")->val;
+
+  char *p;
+  printf ("%s\n", p = sf_parser_objRepr (mod, arg));
+
+  sffree (p);
+
+  obj_t *r = sfmalloc (sizeof (*r));
+  r->type = OBJ_CONST;
+  r->v.o_const.type = CONST_INT;
+  r->v.o_const.v.c_int.v = 0;
+
+  return sf_ot_addobj (r);
+}
+
 void
 test5 ()
 {
@@ -194,21 +212,57 @@ test5 ()
   m->body = st;
   m->body_len = sptr;
 
-  sf_parser_exec (m);
+  /********************************************* */
+  /* put(arg) function */
+
+  {
+    mod_t *put_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+    obj_t *arg_obj = sfmalloc (sizeof (obj_t));
+
+    arg_obj->type = OBJ_CONST;
+    arg_obj->v.o_const.type = CONST_STRING;
+    arg_obj->v.o_const.v.c_string.v = sf_str_new_fromStr ("\n");
+
+    sf_mod_addVar (put_mod, "arg", sf_ot_addobj (arg_obj));
+
+    fun_t put_fun = sf_fun_new ("put", SF_FUN_NATIVE, put_mod, put_fun_rt);
+
+    sf_fun_addarg (&put_fun, "arg");
+
+    fun_t *pf = sf_fun_add (put_fun);
+
+    obj_t *ar_obj = sfmalloc (sizeof (obj_t));
+    ar_obj->type = OBJ_FUN;
+    ar_obj->v.o_fun.f = pf;
+
+    sf_mod_addVar (m, "put", sf_ot_addobj (ar_obj));
+  }
+
+  /********************************************* */
+
+  // while (1)
+  {
+    sf_parser_exec (m);
+  }
 
   char **k = sf_trie_getKeys (m->vtable);
 
-  for (size_t i = 0; k[i] != NULL; i++)
-    {
-      printf ("%s\n", k[i]);
-    }
+  // for (size_t i = 0; k[i] != NULL; i++)
+  //   {
+  //     printf ("%s\n", k[i]);
+  //   }
 }
 
 int
 main (int argc, char const *argv[])
 {
+  SF_DEBUG_DUMP = fopen ("../../tests/dgb.sf", "w");
+
   sf_ot_init ();
+  sf_fun_init ();
   TEST (5);
+
+  fclose (SF_DEBUG_DUMP);
 
   return printf ("Program ended.\n") && 0;
 }

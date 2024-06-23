@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ast.h"
+#include "function.h"
 #include "header.h"
 #include "llist.h"
 #include "objtable.h"

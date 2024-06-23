@@ -824,6 +824,14 @@ _sf_stmt_getblkend (tok_t *arr, size_t tbs)
 }
 
 SF_API void
+sf_ast_freeObj (obj_t **obj)
+{
+  // TODO
+
+  sffree (*obj);
+}
+
+SF_API void
 sf_ast_exprprint (expr_t e)
 {
   switch (e.type)

@@ -36,7 +36,43 @@ sf_parser_exec (mod_t *mod)
 
         case STMT_FUN_CALL:
           {
-            here;
+            llnode_t *name = eval_expr (mod, t.v.fun_call.name);
+            obj_t *fref = name->val;
+
+            // printf ("[%s]\n", sf_parser_objRepr (mod, fref));
+            // printf ("%s\n", t.v.fun_call.name->v.var.name);
+
+            switch (fref->type)
+              {
+              case OBJ_FUN:
+                {
+                  fun_t *fn = fref->v.o_fun.f;
+                  // mod_t *par_pres = fn->mod->parent;
+
+                  for (size_t j = 0; j < t.v.fun_call.arg_count; j++)
+                    {
+                      llnode_t *on = eval_expr (mod, &t.v.fun_call.args[j]);
+
+                      sf_mod_addVar (fn->mod, fn->args[j], on);
+                    }
+
+                  if (fn->type == SF_FUN_NATIVE)
+                    {
+                      llnode_t *ret = fn->native.routine (fn->mod);
+
+                      sf_ot_removeobj (ret);
+                    }
+
+                  else
+                    {
+                    }
+                }
+                break;
+
+              default:
+                e_printf ("Cannot call object of type %d\n", fref->type);
+                break;
+              }
           }
           break;
 
@@ -102,6 +138,13 @@ eval_expr (mod_t *mod, expr_t *e)
       }
       break;
 
+    case EXPR_VAR:
+      {
+        r = sf_mod_getVar (mod, e->v.var.name);
+        // printf ("%d\n", ((obj_t *)r->val)->type);
+      }
+      break;
+
     default:
       e_printf ("Unknown expression '%d' in eval_expr()\n", e->type);
       break;
@@ -110,4 +153,100 @@ eval_expr (mod_t *mod, expr_t *e)
 end:
   assert (r != NULL);
   return r;
+}
+
+SF_API char *
+sf_parser_objRepr (mod_t *mod, obj_t *obj)
+{
+  sf_charptr res;
+
+  switch (obj->type)
+    {
+    case OBJ_CONST:
+      {
+        int ot = obj->v.o_const.type;
+
+        switch (ot)
+          {
+          case CONST_INT:
+            {
+              int i = obj->v.o_const.v.c_int.v;
+              int size = 1; /* for \0 */
+              int isneg = 0;
+
+              if (i < 0)
+                {
+                  size++; // '-'
+                  isneg = 1;
+                }
+
+              do
+                {
+                  size++;
+                  i /= 10;
+                }
+              while (i);
+
+              char *r = sfmalloc (size * sizeof (*r));
+              sprintf (r, "%d", obj->v.o_const.v.c_int.v);
+
+              res = sf_str_new_fromStr (r);
+
+              sffree (r);
+            }
+            break;
+
+          case CONST_FLOAT:
+            {
+              char *r = sfmalloc (32 * sizeof (*r));
+              sprintf (r, "%d", obj->v.o_const.v.c_float.v);
+
+              res = sf_str_new_fromStr (r);
+
+              sffree (r);
+            }
+            break;
+
+          case CONST_BOOL:
+            {
+              if (obj->v.o_const.v.c_bool.v)
+                res = sf_str_new_fromStr ("True");
+
+              else
+                res = sf_str_new_fromStr ("False");
+            }
+            break;
+
+          case CONST_STRING:
+            {
+              res = sf_str_new_fromStr (
+                  SFCPTR_TOSTR (obj->v.o_const.v.c_string.v));
+            }
+            break;
+
+          default:
+            break;
+          }
+      }
+      break;
+
+    case OBJ_FUN:
+      {
+        char *r
+            = sfmalloc ((16 + strlen (obj->v.o_fun.f->name)) * sizeof (char));
+
+        sprintf (r, "<function '%s'>", obj->v.o_fun.f->name);
+
+        res = sf_str_new_fromStr (r);
+
+        sffree (r);
+      }
+      break;
+
+    default:
+      e_printf ("Unknown type '%d' in sf_parser_objRepr()\n", obj->type);
+      break;
+    }
+
+  return SFCPTR_TOSTR (res);
 }

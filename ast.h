@@ -1,5 +1,6 @@
 #pragma once
 
+#include "function.h"
 #include "header.h"
 #include "sfmem.h"
 #include "tokenizer.h"
@@ -56,6 +57,7 @@ enum // Used for both constant types for expr and obj_t
 enum
 {
   OBJ_CONST = 0,
+  OBJ_FUN = 1,
 };
 
 struct _expr_s;
@@ -257,6 +259,13 @@ struct _obj_s
       } v;
 
     } o_const;
+
+    struct
+    {
+      fun_t *f;
+
+    } o_fun;
+
   } v;
 };
 
@@ -274,6 +283,8 @@ extern "C"
 
   SF_API void sf_ast_exprprint (expr_t _Expr);
   SF_API void sf_ast_stmtprint (stmt_t _Stmt);
+
+  SF_API void sf_ast_freeObj (obj_t **_Obj);
 
 #ifdef __cplusplus
 }

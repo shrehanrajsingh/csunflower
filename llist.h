@@ -116,7 +116,7 @@ extern "C"
   SF_API llnode_t *sf_ll_getnode_fromval (llnode_t *_Top, void *_Val,
                                           int (*_CompareRt) (void *, void *));
 
-  SF_API struct _obj_s *sf_ll_set_meta_refcount (llnode_t *_Node, int _NewVal);
+  SF_API void sf_ll_set_meta_refcount (llnode_t *_Node, int _NewVal);
 
 #ifdef __cplusplus
 }

@@ -17,8 +17,12 @@ enum
 
 struct _sf_fun_s
 {
+  char *name;
   int type;
   struct _mod_s *mod;
+
+  char **args;
+  size_t argc;
 
   struct
   {
@@ -48,14 +52,17 @@ extern "C"
   /**
    * Creates a new function object.
    *
+   * @param _Name Name of function
    * @param _Type The type of the function.
    * @param _Mod The module associated with the function.
    * @param _RoutineIfNative The native routine if the function is
    * native. (pass null if function is coded)
    * @return The newly created function object.
    */
-  SF_API fun_t sf_fun_new (int _Type, struct _mod_s *_Mod,
+  SF_API fun_t sf_fun_new (char *_Name, int _Type, struct _mod_s *_Mod,
                            void *_RoutineIfNative);
+
+  SF_API void sf_fun_addarg (fun_t *_Fun, char *_ArgName);
 
   /**
    * Adds a function to the sunflower library.
