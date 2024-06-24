@@ -410,7 +410,7 @@ sf_tokenizer_print (tok_t tok)
     {
     case TOK_COMMENT:
       {
-        printf ("(comment) %s\n", tok.v.t_cmt.v);
+        printf ("(comment) %s\n", SFCPTR_TOSTR (tok.v.t_cmt.v));
       }
       break;
     case TOK_EOF:

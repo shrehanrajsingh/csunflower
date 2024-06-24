@@ -10,7 +10,7 @@ sf_parser_exec (mod_t *mod)
   while (i < mod->body_len)
     {
       stmt_t t = mod->body[i];
-      //   sf_ast_stmtprint (t);
+      // sf_ast_stmtprint (t);
 
       switch (t.type)
         {
@@ -329,8 +329,11 @@ sf_parser_objRepr (mod_t *mod, obj_t *obj)
 
         for (size_t i = 0; i < t->len; i++)
           {
-            sf_str_push (&res,
-                         sf_parser_objRepr (mod, (obj_t *)(t->vals[i]->val)));
+            char *p;
+            sf_str_push (
+                &res, p = sf_parser_objRepr (mod, (obj_t *)(t->vals[i]->val)));
+
+            sffree (p);
 
             if (i != t->len - 1)
               sf_str_push (&res, ", ");

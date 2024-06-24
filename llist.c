@@ -119,6 +119,7 @@ sf_ll_set_meta_refcount (llnode_t *node, int nval)
 
   if (node->meta.ref_count < 1)
     {
+      // here;
       sf_ot_removeobj (node);
     }
 }

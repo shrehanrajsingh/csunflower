@@ -6,6 +6,8 @@ char *
 readfile (const char *fname)
 {
   FILE *fptr = fopen (fname, "r");
+  assert (fptr != NULL);
+
   sf_charptr res = sf_str_new_empty ();
   char c;
 

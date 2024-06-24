@@ -987,6 +987,7 @@ sf_ast_freeObj (obj_t **obj)
     {
     case OBJ_ARRAY:
       {
+        // here;
         sf_array_free (p->v.o_array.v);
       }
       break;

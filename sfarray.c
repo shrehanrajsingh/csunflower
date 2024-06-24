@@ -68,8 +68,12 @@ sf_array_free (array_t *arr)
 {
   for (size_t i = 0; i < arr->len; i++)
     {
+      //   printf ("%d\n", arr->vals[i]->meta.ref_count);
       sf_ll_set_meta_refcount (arr->vals[i], arr->vals[i]->meta.ref_count - 1);
     }
+
+  if (arr->vals != NULL)
+    sffree (arr->vals);
 
   arr->len = 0;
   arr->vals = NULL;
