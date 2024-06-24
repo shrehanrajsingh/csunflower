@@ -12,5 +12,3 @@ put(a[7])
 put(a[8])
 put(a[9])
 put(a[10])
-
-put(a)

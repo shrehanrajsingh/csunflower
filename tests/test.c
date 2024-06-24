@@ -251,6 +251,13 @@ test5 ()
   //   {
   //     printf ("%s\n", k[i]);
   //   }
+
+  // array_t **arrstack = sf_array_getStack ();
+
+  // for (size_t i = 0; i < 2; i++)
+  //   {
+  //     printf ("%d\n", (*arrstack)[i].len);
+  //   }
 }
 
 int
@@ -260,9 +267,11 @@ main (int argc, char const *argv[])
 
   sf_ot_init ();
   sf_fun_init ();
+  sf_array_init ();
+
   TEST (5);
 
   fclose (SF_DEBUG_DUMP);
 
-  return printf ("Program ended.\n") && 0;
+  return !printf ("Program ended.\n");
 }

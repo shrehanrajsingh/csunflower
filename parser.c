@@ -65,6 +65,7 @@ sf_parser_exec (mod_t *mod)
 
                   else
                     {
+                      // TODO
                     }
                 }
                 break;
@@ -142,6 +143,82 @@ eval_expr (mod_t *mod, expr_t *e)
       {
         r = sf_mod_getVar (mod, e->v.var.name);
         // printf ("%d\n", ((obj_t *)r->val)->type);
+      }
+      break;
+
+    case EXPR_ARRAY:
+      {
+        array_t *t = sf_array_new ();
+        t->len = e->v.e_array.val_count;
+        t->vals = sfmalloc (t->len * sizeof (*t->vals));
+
+        for (size_t j = 0; j < t->len; j++)
+          {
+            // printf ("%d\n", e->v.e_array.vals[j].type);
+            t->vals[j] = eval_expr (mod, (expr_t *)&e->v.e_array.vals[j]);
+
+            sf_ll_set_meta_refcount (t->vals[j],
+                                     t->vals[j]->meta.ref_count + 1);
+          }
+
+        array_t *rt = sf_array_add (t);
+
+        // printf ("[%d]\n", rt - *sf_array_getStack ());
+
+        obj_t *o = sfmalloc (sizeof (*o));
+        o->type = OBJ_ARRAY;
+        o->v.o_array.v = rt;
+
+        r = sf_ot_addobj (o);
+      }
+      break;
+
+    case EXPR_IDX_ACCESS:
+      {
+        obj_t *name = (obj_t *)eval_expr (mod, e->v.e_idx_access.name)->val;
+        obj_t *val = (obj_t *)eval_expr (mod, e->v.e_idx_access.val)->val;
+
+        // printf ("%d %d\n", name->type, val->type);
+
+        switch (name->type)
+          {
+          case OBJ_ARRAY:
+            {
+              array_t *t = name->v.o_array.v;
+
+              switch (val->type)
+                {
+                case OBJ_CONST:
+                  {
+                    switch (val->v.o_const.type)
+                      {
+                      case CONST_INT:
+                        {
+                          int p = val->v.o_const.v.c_int.v;
+
+                          while (p < 0)
+                            p += t->len;
+                          p %= t->len;
+
+                          r = t->vals[p];
+                        }
+                        break;
+
+                      default:
+                        break;
+                      }
+                  }
+                  break;
+
+                default:
+                  break;
+                }
+            }
+            break;
+
+          default:
+            break;
+          }
       }
       break;
 
@@ -240,6 +317,26 @@ sf_parser_objRepr (mod_t *mod, obj_t *obj)
         res = sf_str_new_fromStr (r);
 
         sffree (r);
+      }
+      break;
+
+    case OBJ_ARRAY:
+      {
+        array_t *t = obj->v.o_array.v;
+        assert (t != NULL);
+
+        res = sf_str_new_fromStr ("[");
+
+        for (size_t i = 0; i < t->len; i++)
+          {
+            sf_str_push (&res,
+                         sf_parser_objRepr (mod, (obj_t *)(t->vals[i]->val)));
+
+            if (i != t->len - 1)
+              sf_str_push (&res, ", ");
+          }
+
+        sf_str_push (&res, "]");
       }
       break;
 

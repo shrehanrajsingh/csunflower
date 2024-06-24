@@ -9,6 +9,8 @@ struct _mod_s;
 
 typedef llnode_t *(*fnret_t) (struct _mod_s *);
 
+#define SF_FUN_ARG_LIMIT 256
+
 enum
 {
   SF_FUN_NATIVE = 0,

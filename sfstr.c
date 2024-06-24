@@ -40,7 +40,7 @@ sf_str_eq_rCp (sf_charptr _L1, const char *_L2)
 SF_API int
 sf_str_inStr (const char *_L1, sf_charptr _L2)
 {
-  return strstr (_L2, _L1) != NULL;
+  return strstr (_L1, _L2) != NULL;
 }
 
 SF_API sf_charptr

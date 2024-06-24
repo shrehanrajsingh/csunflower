@@ -1,4 +1,5 @@
 #include "ast.h"
+#include "sfarray.h"
 
 stmt_t _sf_stmt_vdgen (tok_t *_arr, size_t _idx, size_t *_jumper);
 stmt_t _sf_stmt_opeqgen (tok_t *_arr, size_t _idx, size_t *_jumper);
@@ -384,6 +385,147 @@ sf_ast_exprgen (tok_t *arr, size_t len)
 
                 goto end;
               }
+
+            else if (sf_str_eq_rCp (p, "["))
+              {
+                if (res.type == -1)
+                  {
+                    int comma_count = 0;
+                    int gb = 0;
+                    size_t end_idx = i;
+
+                    int saw_some_token = 0;
+                    int comma_idxs[SF_FUN_ARG_LIMIT - 1];
+
+                    for (size_t j = i + 1; j < len; j++)
+                      {
+                        tok_t d = arr[j];
+
+                        if (d.type == TOK_OPERATOR)
+                          {
+                            sf_charptr p = d.v.t_op.v;
+
+                            if (sf_str_eq_rCp (p, "]") && !gb)
+                              {
+                                end_idx = j;
+                                break;
+                              }
+
+                            if (sf_str_eq_rCp (p, ",") && !gb)
+                              {
+                                if (comma_count == SF_FUN_ARG_LIMIT - 1)
+                                  {
+                                    e_printf ("Argument limit reached in "
+                                              "sf_ast_exprgen()\n");
+
+                                    goto end;
+                                  }
+
+                                comma_idxs[comma_count++] = j;
+                              }
+
+                            if (sf_str_inStr ("([{", p))
+                              gb++;
+
+                            else if (sf_str_inStr (")]}", p))
+                              gb--;
+                          }
+
+                        if (d.type != TOK_NEWLINE && d.type != TOK_SPACE)
+                          saw_some_token = 1;
+                      }
+
+                    assert (end_idx != i);
+
+                    res.type = EXPR_ARRAY;
+                    size_t vlc = 0;
+
+                    if (saw_some_token)
+                      vlc = comma_count + 1;
+
+                    // else
+                    //   vlc = 0;
+
+                    res.v.e_array.val_count = vlc;
+                    comma_idxs[comma_count++]
+                        = end_idx; // to get last argument
+
+                    if (vlc)
+                      {
+                        expr_t *vls = sfmalloc (vlc * sizeof (*vls));
+
+                        for (size_t j = 0; j < comma_count; j++)
+                          {
+                            if (j)
+                              {
+                                vls[j] = sf_ast_exprgen (
+                                    arr + comma_idxs[j - 1] + 1,
+                                    comma_idxs[j] - comma_idxs[j - 1] - 1);
+                              }
+                            else
+                              {
+                                vls[j] = sf_ast_exprgen (
+                                    arr + i + 1, comma_idxs[j] - i - 1);
+                              }
+                          }
+
+                        res.v.e_array.vals = vls;
+                      }
+                    else
+                      res.v.e_array.vals = NULL;
+
+                    i = end_idx;
+                    goto l_end;
+                  }
+                else
+                  {
+                    expr_t pres_res = res;
+
+                    res.type = EXPR_IDX_ACCESS;
+                    res.v.e_idx_access.name = NULL;
+                    res.v.e_idx_access.val = NULL;
+
+                    int comma_count = 0;
+                    int gb = 0;
+                    size_t end_idx = i;
+
+                    for (size_t j = i + 1; j < len; j++)
+                      {
+                        tok_t d = arr[j];
+
+                        if (d.type == TOK_OPERATOR)
+                          {
+                            sf_charptr p = d.v.t_op.v;
+
+                            if (sf_str_eq_rCp (p, "]") && !gb)
+                              {
+                                end_idx = j;
+                                break;
+                              }
+
+                            if (sf_str_inStr ("([{", p))
+                              gb++;
+
+                            else if (sf_str_inStr (")]}", p))
+                              gb--;
+                          }
+                      }
+
+                    assert (end_idx != i && end_idx != i + 1);
+
+                    res.v.e_idx_access.name = sfmalloc (sizeof (expr_t));
+                    *res.v.e_idx_access.name = pres_res;
+
+                    res.v.e_idx_access.val = sfmalloc (sizeof (expr_t));
+                    *res.v.e_idx_access.val
+                        = sf_ast_exprgen (arr + i + 1, end_idx - i - 1);
+
+                    // printf ("{%d}\n", res.v.e_idx_access.val->type);
+
+                    i = end_idx;
+                    goto l_end;
+                  }
+              }
           }
 
         default:
@@ -517,7 +659,8 @@ _sf_stmt_fcgen (tok_t *arr, size_t idx, size_t *jptr)
         }
     }
 
-  assert (gb == 0);
+  // assert (gb == 0);
+  gb = 0;
 
   size_t i;
   for (i = idx + 1; arr[i].type != TOK_EOF; i++)
@@ -540,6 +683,11 @@ _sf_stmt_fcgen (tok_t *arr, size_t idx, size_t *jptr)
 
   assert (rsi != 0); // Missing ')'
   assert (gb == 0);
+
+  // for (size_t i = idx + 1; i < rsi; i++)
+  //   {
+  //     sf_tokenizer_print (arr[i]);
+  //   }
 
   res.v.fun_call.name = sfmalloc (sizeof (expr_t));
   *res.v.fun_call.name = sf_ast_exprgen (arr + lsi, idx - lsi);
@@ -565,8 +713,10 @@ _sf_stmt_fcgen (tok_t *arr, size_t idx, size_t *jptr)
               aai = 0;
               continue;
             }
+
           if (sf_str_inStr ("({[", c.v.t_op.v))
             gb++;
+
           else if (sf_str_inStr (")}]", c.v.t_op.v))
             gb--;
         }
@@ -576,6 +726,11 @@ _sf_stmt_fcgen (tok_t *arr, size_t idx, size_t *jptr)
 
   if (aai)
     {
+      // for (size_t i = 0; i < aai; i++)
+      //   {
+      //     sf_tokenizer_print (arg_arr[i]);
+      //   }
+
       res.v.fun_call.args
           = sfrealloc (res.v.fun_call.args,
                        (res.v.fun_call.arg_count + 1) * sizeof (expr_t));
@@ -826,7 +981,19 @@ _sf_stmt_getblkend (tok_t *arr, size_t tbs)
 SF_API void
 sf_ast_freeObj (obj_t **obj)
 {
-  // TODO
+  obj_t *p = *obj;
+
+  switch (p->type)
+    {
+    case OBJ_ARRAY:
+      {
+        sf_array_free (p->v.o_array.v);
+      }
+      break;
+
+    default:
+      break;
+    }
 
   sffree (*obj);
 }
@@ -859,11 +1026,13 @@ sf_ast_exprprint (expr_t e)
           }
       }
       break;
+
     case EXPR_VAR:
       {
         printf ("var %s\n", e.v.var.name);
       }
       break;
+
     case EXPR_VAR_DECL:
       {
         printf ("var_decl\n");
@@ -875,6 +1044,7 @@ sf_ast_exprprint (expr_t e)
         sf_ast_exprprint (*e.v.var_decl.val);
       }
       break;
+
     case EXPR_FUN_CALL:
       {
         printf ("fun_call\n");
@@ -887,6 +1057,7 @@ sf_ast_exprprint (expr_t e)
           }
       }
       break;
+
     case EXPR_CONDITIONAL_EQEQ:
       {
         printf ("conditional_eqeq\n");
@@ -898,6 +1069,7 @@ sf_ast_exprprint (expr_t e)
         sf_ast_exprprint (*e.v.expr_conditional.rval);
       }
       break;
+
     case EXPR_CONDITIONAL_NEQ:
       {
         printf ("conditional_neq\n");
@@ -909,6 +1081,7 @@ sf_ast_exprprint (expr_t e)
         sf_ast_exprprint (*e.v.expr_conditional.rval);
       }
       break;
+
     case EXPR_CONDITIONAL_GT:
       {
         printf ("conditional_gt\n");
@@ -920,6 +1093,7 @@ sf_ast_exprprint (expr_t e)
         sf_ast_exprprint (*e.v.expr_conditional.rval);
       }
       break;
+
     case EXPR_CONDITIONAL_LT:
       {
         printf ("conditional_lt\n");
@@ -931,6 +1105,7 @@ sf_ast_exprprint (expr_t e)
         sf_ast_exprprint (*e.v.expr_conditional.rval);
       }
       break;
+
     case EXPR_CONDITIONAL_GTEQ:
       {
         printf ("conditional_gteq\n");
@@ -942,6 +1117,7 @@ sf_ast_exprprint (expr_t e)
         sf_ast_exprprint (*e.v.expr_conditional.rval);
       }
       break;
+
     case EXPR_CONDITIONAL_LTEQ:
       {
         printf ("conditional_lteq\n");
@@ -953,6 +1129,7 @@ sf_ast_exprprint (expr_t e)
         sf_ast_exprprint (*e.v.expr_conditional.rval);
       }
       break;
+
     case EXPR_TOSTEP:
       {
         printf ("to_step\n");
@@ -971,6 +1148,7 @@ sf_ast_exprprint (expr_t e)
           printf ("null\n");
       }
       break;
+
     case EXPR_INCLAUSE:
       {
         printf ("in_clause\n");
@@ -980,6 +1158,31 @@ sf_ast_exprprint (expr_t e)
 
         printf ("rval\n");
         sf_ast_exprprint (*e.v.in_clause.rval);
+      }
+      break;
+
+    case EXPR_ARRAY:
+      {
+        printf ("array\n");
+
+        printf ("args (%d)\n", e.v.e_array.val_count);
+        for (size_t i = 0; i < e.v.e_array.val_count; i++)
+          {
+            printf ("[%d] ", i);
+            sf_ast_exprprint (e.v.e_array.vals[i]);
+          }
+      }
+      break;
+
+    case EXPR_IDX_ACCESS:
+      {
+        printf ("idx_access\n");
+
+        printf ("name\n");
+        sf_ast_exprprint (*e.v.e_idx_access.name);
+
+        printf ("val\n");
+        sf_ast_exprprint (*e.v.e_idx_access.val);
       }
       break;
 
@@ -1005,6 +1208,7 @@ sf_ast_stmtprint (stmt_t s)
         sf_ast_exprprint (*s.v.var_decl.val);
       }
       break;
+
     case STMT_FUN_CALL:
       {
         printf ("fun_call\n");
@@ -1017,6 +1221,7 @@ sf_ast_stmtprint (stmt_t s)
           }
       }
       break;
+
     case STMT_FUN_DECL:
       {
         printf ("fun_decl\n");

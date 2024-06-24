@@ -44,6 +44,8 @@ enum
   EXPR_CONDITIONAL_LTEQ = 9,
   EXPR_TOSTEP = 10,
   EXPR_INCLAUSE = 11,
+  EXPR_ARRAY = 12,
+  EXPR_IDX_ACCESS = 13,
 };
 
 enum // Used for both constant types for expr and obj_t
@@ -58,9 +60,11 @@ enum
 {
   OBJ_CONST = 0,
   OBJ_FUN = 1,
+  OBJ_ARRAY = 2,
 };
 
 struct _expr_s;
+struct _sf_array_s;
 
 struct _stmt_s
 {
@@ -192,6 +196,7 @@ struct _expr_s
     struct
     {
       sf_charptr name;
+
     } var;
 
     struct
@@ -218,6 +223,20 @@ struct _expr_s
       struct _expr_s *rval;
 
     } in_clause;
+
+    struct
+    {
+      struct _expr_s *vals;
+      size_t val_count;
+
+    } e_array;
+
+    struct
+    {
+      struct _expr_s *name;
+      struct _expr_s *val;
+
+    } e_idx_access;
 
   } v;
 };
@@ -265,6 +284,12 @@ struct _obj_s
       fun_t *f;
 
     } o_fun;
+
+    struct
+    {
+      struct _sf_array_s *v;
+
+    } o_array;
 
   } v;
 };
