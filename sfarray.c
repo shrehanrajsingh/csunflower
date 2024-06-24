@@ -32,6 +32,8 @@ sf_array_pushVal (array_t *arr, llnode_t *val)
 {
   arr->vals = sfrealloc (arr->vals, (arr->len + 1) * sizeof (*arr->vals));
   arr->vals[arr->len++] = val;
+
+  sf_ll_set_meta_refcount (val, val->meta.ref_count + 1);
 }
 
 SF_API array_t *
