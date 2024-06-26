@@ -1,6 +1,7 @@
 #include "parser.h"
 
 llnode_t *eval_expr (mod_t *, expr_t *);
+llnode_t *_sf_fcall (mod_t *, expr_t *);
 
 SF_API parser_rt
 sf_parser_exec (mod_t *mod)
@@ -36,44 +37,17 @@ sf_parser_exec (mod_t *mod)
 
         case STMT_FUN_CALL:
           {
-            llnode_t *name = eval_expr (mod, t.v.fun_call.name);
-            obj_t *fref = name->val;
+            expr_t mke = (expr_t){ .type = EXPR_FUN_CALL,
+                                   .v.fun_call = {
+                                       .arg_count = t.v.fun_call.arg_count,
+                                       .args = t.v.fun_call.args,
+                                       .name = t.v.fun_call.name,
+                                   } };
 
-            // printf ("[%s]\n", sf_parser_objRepr (mod, fref));
-            // printf ("%s\n", t.v.fun_call.name->v.var.name);
+            llnode_t *r = _sf_fcall (mod, &mke);
 
-            switch (fref->type)
-              {
-              case OBJ_FUN:
-                {
-                  fun_t *fn = fref->v.o_fun.f;
-                  // mod_t *par_pres = fn->mod->parent;
-
-                  for (size_t j = 0; j < t.v.fun_call.arg_count; j++)
-                    {
-                      llnode_t *on = eval_expr (mod, &t.v.fun_call.args[j]);
-
-                      sf_mod_addVar (fn->mod, fn->args[j], on);
-                    }
-
-                  if (fn->type == SF_FUN_NATIVE)
-                    {
-                      llnode_t *ret = fn->native.routine (fn->mod);
-
-                      sf_ot_removeobj (ret);
-                    }
-
-                  else
-                    {
-                      // TODO
-                    }
-                }
-                break;
-
-              default:
-                e_printf ("Cannot call object of type %d\n", fref->type);
-                break;
-              }
+            assert (r != NULL);
+            sf_ll_set_meta_refcount (r, r->meta.ref_count - 1);
           }
           break;
 
@@ -222,6 +196,100 @@ eval_expr (mod_t *mod, expr_t *e)
       }
       break;
 
+    case EXPR_TOSTEPTYPE:
+      {
+        llnode_t *lv = eval_expr (mod, e->v.to_step.lval);
+        llnode_t *rv = eval_expr (mod, e->v.to_step.rval);
+
+        sf_ll_set_meta_refcount (lv, lv->meta.ref_count + 1);
+        sf_ll_set_meta_refcount (rv, rv->meta.ref_count + 1);
+
+        llnode_t *stp = NULL;
+        int l_val, r_val, step_c = 1;
+
+        llnode_t *tp = NULL;
+        char tp_val[2] = { '[', ')' }; // default mode
+
+        if (e->v.to_step.e_step != NULL)
+          {
+            stp = eval_expr (mod, e->v.to_step.e_step);
+
+            sf_ll_set_meta_refcount (stp, stp->meta.ref_count + 1);
+            obj_t *ob_o = (obj_t *)stp->val;
+
+            assert (ob_o->type == OBJ_CONST
+                    && ob_o->v.o_const.type == CONST_INT);
+
+            step_c = ob_o->v.o_const.v.c_int.v;
+          }
+
+        if (e->v.to_step.e_type != NULL)
+          {
+            tp = eval_expr (mod, e->v.to_step.e_type);
+
+            sf_ll_set_meta_refcount (tp, tp->meta.ref_count + 1);
+            obj_t *tp_o = (obj_t *)tp->val;
+
+            assert (tp_o->type == OBJ_CONST
+                    && tp_o->v.o_const.type == CONST_STRING);
+
+            char *p = SFCPTR_TOSTR (tp_o->v.o_const.v.c_string.v);
+
+            for (size_t k = 0; p[k] != '\0'; k++)
+              {
+                if (p[k] == '[' || p[k] == '(')
+                  tp_val[0] = p[k];
+
+                if (p[k] == ']' || p[k] == ')')
+                  tp_val[1] = p[k];
+              }
+          }
+
+        obj_t *lv_o = (obj_t *)lv->val;
+        obj_t *rv_o = (obj_t *)rv->val;
+
+        assert (lv_o->type == OBJ_CONST && lv_o->v.o_const.type == CONST_INT);
+        assert (rv_o->type == OBJ_CONST && rv_o->v.o_const.type == CONST_INT);
+
+        l_val = lv_o->v.o_const.v.c_int.v;
+        r_val = rv_o->v.o_const.v.c_int.v;
+
+        array_t *narr = sf_array_new ();
+
+        for (int i = l_val + (tp_val[0] != '[');
+             i < r_val + (tp_val[1] == ']'); i += step_c)
+          {
+            obj_t *v = sfmalloc (sizeof (*v));
+            v->type = OBJ_CONST;
+            v->v.o_const.type = CONST_INT;
+            v->v.o_const.v.c_int.v = i;
+
+            sf_array_pushVal (narr, sf_ot_addobj (v));
+          }
+
+        obj_t *res = sfmalloc (sizeof (*res));
+        res->type = OBJ_ARRAY;
+        res->v.o_array.v = narr;
+
+        r = sf_ot_addobj (res);
+
+        sf_ll_set_meta_refcount (lv, lv->meta.ref_count - 1);
+        sf_ll_set_meta_refcount (rv, rv->meta.ref_count - 1);
+
+        if (stp != NULL)
+          sf_ll_set_meta_refcount (stp, stp->meta.ref_count - 1);
+
+        if (tp != NULL)
+          sf_ll_set_meta_refcount (tp, tp->meta.ref_count - 1);
+      }
+      break;
+
+    case EXPR_FUN_CALL:
+      {
+        r = _sf_fcall (mod, e);
+      }
+      break;
+
     default:
       e_printf ("Unknown expression '%d' in eval_expr()\n", e->type);
       break;
@@ -230,6 +298,51 @@ eval_expr (mod_t *mod, expr_t *e)
 end:
   assert (r != NULL);
   return r;
+}
+
+llnode_t *
+_sf_fcall (mod_t *mod, expr_t *e)
+{
+  llnode_t *name = eval_expr (mod, e->v.fun_call.name);
+  obj_t *fref = name->val;
+
+  // printf ("[%s]\n", sf_parser_objRepr (mod, fref));
+  // printf ("%s\n", e->v.fun_call.name->v.var.name);
+
+  llnode_t *res = NULL;
+
+  switch (fref->type)
+    {
+    case OBJ_FUN:
+      {
+        fun_t *fn = fref->v.o_fun.f;
+        // mod_t *par_pres = fn->mod->parent;
+
+        for (size_t j = 0; j < e->v.fun_call.arg_count; j++)
+          {
+            llnode_t *on = eval_expr (mod, &e->v.fun_call.args[j]);
+
+            sf_mod_addVar (fn->mod, fn->args[j], on);
+          }
+
+        if (fn->type == SF_FUN_NATIVE)
+          {
+            res = fn->native.routine (fn->mod);
+          }
+
+        else
+          {
+            // TODO
+          }
+      }
+      break;
+
+    default:
+      e_printf ("Cannot call object of type %d\n", fref->type);
+      break;
+    }
+
+  return res;
 }
 
 SF_API char *

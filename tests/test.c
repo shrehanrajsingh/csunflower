@@ -186,17 +186,44 @@ test4 ()
 llnode_t *
 put_fun_rt (mod_t *mod)
 {
-  obj_t *arg = sf_mod_getVar (mod, "arg")->val;
+  obj_t *arg = (obj_t *)sf_mod_getVar (mod, "arg")->val;
 
   char *p;
-  printf ("%s\n", p = sf_parser_objRepr (mod, arg));
+  int c = 0;
+  c += printf ("%s\n", p = sf_parser_objRepr (mod, arg));
 
   sffree (p);
 
   obj_t *r = sfmalloc (sizeof (*r));
   r->type = OBJ_CONST;
   r->v.o_const.type = CONST_INT;
-  r->v.o_const.v.c_int.v = 0;
+  r->v.o_const.v.c_int.v = c;
+
+  return sf_ot_addobj (r);
+}
+
+llnode_t *
+input_fun_rt (mod_t *mod)
+{
+  obj_t *msg = (obj_t *)sf_mod_getVar (mod, "msg")->val;
+
+  char *p;
+  printf ("%s", p = sf_parser_objRepr (mod, msg));
+
+  sffree (p);
+
+  sf_charptr inp = sf_str_new_empty ();
+  char c;
+
+  while ((c = getchar ()) != '\n')
+    {
+      sf_str_pushchr (&inp, c);
+    }
+
+  obj_t *r = sfmalloc (sizeof (*r));
+  r->type = OBJ_CONST;
+  r->v.o_const.type = CONST_STRING;
+  r->v.o_const.v.c_string.v = inp;
 
   return sf_ot_addobj (r);
 }
@@ -227,9 +254,9 @@ test5 ()
 
     sf_mod_addVar (put_mod, "arg", sf_ot_addobj (arg_obj));
 
-    fun_t put_fun = sf_fun_new ("put", SF_FUN_NATIVE, put_mod, put_fun_rt);
+    fun_t *put_fun = sf_fun_new ("put", SF_FUN_NATIVE, put_mod, put_fun_rt);
 
-    sf_fun_addarg (&put_fun, "arg");
+    sf_fun_addarg (put_fun, "arg");
 
     fun_t *pf = sf_fun_add (put_fun);
 
@@ -238,6 +265,35 @@ test5 ()
     ar_obj->v.o_fun.f = pf;
 
     sf_mod_addVar (m, "put", sf_ot_addobj (ar_obj));
+  }
+
+  /********************************************* */
+
+  /********************************************* */
+  /* input(arg) function */
+
+  {
+    mod_t *inp_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+    obj_t *msg_obj = sfmalloc (sizeof (obj_t));
+
+    msg_obj->type = OBJ_CONST;
+    msg_obj->v.o_const.type = CONST_STRING;
+    msg_obj->v.o_const.v.c_string.v = sf_str_new_fromStr ("");
+
+    sf_mod_addVar (inp_mod, "msg", sf_ot_addobj (msg_obj));
+
+    fun_t *inp_fun
+        = sf_fun_new ("input", SF_FUN_NATIVE, inp_mod, input_fun_rt);
+
+    sf_fun_addarg (inp_fun, "msg");
+
+    fun_t *ifp = sf_fun_add (inp_fun);
+
+    obj_t *ir_obj = sfmalloc (sizeof (obj_t));
+    ir_obj->type = OBJ_FUN;
+    ir_obj->v.o_fun.f = ifp;
+
+    sf_mod_addVar (m, "input", sf_ot_addobj (ir_obj));
   }
 
   /********************************************* */

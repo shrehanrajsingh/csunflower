@@ -42,7 +42,7 @@ enum
   EXPR_CONDITIONAL_LT = 7,
   EXPR_CONDITIONAL_GTEQ = 8,
   EXPR_CONDITIONAL_LTEQ = 9,
-  EXPR_TOSTEP = 10,
+  EXPR_TOSTEPTYPE = 10,
   EXPR_INCLAUSE = 11,
   EXPR_ARRAY = 12,
   EXPR_IDX_ACCESS = 13,
@@ -180,7 +180,7 @@ struct _expr_s
     {
 
       struct _expr_s *name;
-      struct _expr_s **args;
+      struct _expr_s *args;
       size_t arg_count;
 
     } fun_call;
@@ -213,6 +213,7 @@ struct _expr_s
       struct _expr_s *lval;
       struct _expr_s *rval;
       struct _expr_s *e_step;
+      struct _expr_s *e_type;
 
     } to_step;
 

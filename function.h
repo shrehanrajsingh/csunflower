@@ -61,8 +61,8 @@ extern "C"
    * native. (pass null if function is coded)
    * @return The newly created function object.
    */
-  SF_API fun_t sf_fun_new (char *_Name, int _Type, struct _mod_s *_Mod,
-                           void *_RoutineIfNative);
+  SF_API fun_t *sf_fun_new (char *_Name, int _Type, struct _mod_s *_Mod,
+                            void *_RoutineIfNative);
 
   SF_API void sf_fun_addarg (fun_t *_Fun, char *_ArgName);
 
@@ -72,7 +72,7 @@ extern "C"
    * @param _Fun The function to be added.
    * @return A pointer to the added function.
    */
-  SF_API fun_t *sf_fun_add (fun_t _Fun);
+  SF_API fun_t *sf_fun_add (fun_t *_Fun);
 
 #ifdef __cplusplus
 }

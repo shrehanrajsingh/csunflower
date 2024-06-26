@@ -200,15 +200,17 @@ sf_ast_exprgen (tok_t *arr, size_t len)
                   {
                     expr_t pres_res = res;
 
-                    res.type = EXPR_TOSTEP;
+                    res.type = EXPR_TOSTEPTYPE;
                     res.v.to_step.lval = sfmalloc (sizeof (expr_t));
                     *res.v.to_step.lval = pres_res;
 
                     res.v.to_step.rval = NULL;
                     res.v.to_step.e_step = NULL;
+                    res.v.to_step.e_type = NULL;
 
                     int gb = 0;
-                    size_t step_idx = len;
+                    int step_idx = -1;
+                    int type_idx = -1;
 
                     for (size_t j = i + 1; j < len; j++)
                       {
@@ -230,20 +232,114 @@ sf_ast_exprgen (tok_t *arr, size_t len)
                             && !gb) // is_reserved is always 1 here
                           {
                             step_idx = j;
-                            break;
+                          }
+
+                        if (d.type == TOK_IDENTIFIER
+                            && sf_str_eq_rCp (d.v.t_ident.v, "type")
+                            && !gb) // is_reserved is always 1 here
+                          {
+                            type_idx = j;
+                          }
+
+                        if (step_idx != -1 && type_idx != -1)
+                          break;
+                      }
+
+                    // if (step_idx != -1)
+                    //   {
+                    //     if (type_idx == -1)
+                    //       {
+                    //         res.v.to_step.e_step = sfmalloc (sizeof
+                    //         (expr_t)); *res.v.to_step.e_step =
+                    //         sf_ast_exprgen (
+                    //             arr + step_idx + 1, len - step_idx - 1);
+                    //       }
+                    //     else
+                    //       {
+                    //         res.v.to_step.e_step = sfmalloc (sizeof
+                    //         (expr_t)); *res.v.to_step.e_step =
+                    //         sf_ast_exprgen (
+                    //             arr + step_idx + 1, type_idx - step_idx -
+                    //             1);
+
+                    //         goto l2;
+                    //       }
+                    //   }
+
+                    // if (type_idx != -1)
+                    //   {
+                    //   l2:;
+                    //     res.v.to_step.e_type = sfmalloc (sizeof (expr_t));
+                    //     *res.v.to_step.e_type = sf_ast_exprgen (
+                    //         arr + type_idx + 1, len - type_idx - 1);
+                    //   }
+
+                    if (step_idx != -1 && type_idx != -1)
+                      {
+                        if (step_idx < type_idx)
+                          {
+                            res.v.to_step.e_step = sfmalloc (sizeof (expr_t));
+
+                            *res.v.to_step.e_step = sf_ast_exprgen (
+                                arr + step_idx + 1, type_idx - step_idx - 1);
+
+                            res.v.to_step.e_type = sfmalloc (sizeof (expr_t));
+
+                            *res.v.to_step.e_type = sf_ast_exprgen (
+                                arr + type_idx + 1, len - type_idx - 1);
+
+                            res.v.to_step.rval = sfmalloc (sizeof (expr_t));
+                            *res.v.to_step.rval = sf_ast_exprgen (
+                                arr + i + 1, step_idx - i - 1);
+                          }
+                        else
+                          {
+                            res.v.to_step.e_step = sfmalloc (sizeof (expr_t));
+
+                            *res.v.to_step.e_step = sf_ast_exprgen (
+                                arr + step_idx + 1, len - step_idx - 1);
+
+                            res.v.to_step.e_type = sfmalloc (sizeof (expr_t));
+
+                            *res.v.to_step.e_type = sf_ast_exprgen (
+                                arr + type_idx + 1, step_idx - type_idx - 1);
+
+                            res.v.to_step.rval = sfmalloc (sizeof (expr_t));
+                            *res.v.to_step.rval = sf_ast_exprgen (
+                                arr + i + 1, type_idx - i - 1);
                           }
                       }
 
-                    if (step_idx != len)
+                    else if (step_idx != -1 && type_idx == -1)
                       {
                         res.v.to_step.e_step = sfmalloc (sizeof (expr_t));
+
                         *res.v.to_step.e_step = sf_ast_exprgen (
                             arr + step_idx + 1, len - step_idx - 1);
+
+                        res.v.to_step.rval = sfmalloc (sizeof (expr_t));
+                        *res.v.to_step.rval
+                            = sf_ast_exprgen (arr + i + 1, step_idx - i - 1);
                       }
 
-                    res.v.to_step.rval = sfmalloc (sizeof (expr_t));
-                    *res.v.to_step.rval
-                        = sf_ast_exprgen (arr + i + 1, step_idx - i - 1);
+                    else if (step_idx == -1 && type_idx != -1)
+                      {
+                        res.v.to_step.e_type = sfmalloc (sizeof (expr_t));
+
+                        *res.v.to_step.e_type = sf_ast_exprgen (
+                            arr + type_idx + 1, len - type_idx - 1);
+
+                        res.v.to_step.rval = sfmalloc (sizeof (expr_t));
+                        *res.v.to_step.rval
+                            = sf_ast_exprgen (arr + i + 1, type_idx - i - 1);
+                      }
+
+                    else
+                      {
+                        res.v.to_step.rval = sfmalloc (sizeof (expr_t));
+                        *res.v.to_step.rval
+                            = sf_ast_exprgen (arr + i + 1, len - i - 1);
+                      }
 
                     goto end;
                   }
@@ -521,6 +617,75 @@ sf_ast_exprgen (tok_t *arr, size_t len)
                         = sf_ast_exprgen (arr + i + 1, end_idx - i - 1);
 
                     // printf ("{%d}\n", res.v.e_idx_access.val->type);
+
+                    i = end_idx;
+                    goto l_end;
+                  }
+              }
+
+            else if (sf_str_eq_rCp (p, "("))
+              {
+                expr_t pres_res = res;
+
+                if (res.type != -1)
+                  {
+                    res.type = EXPR_FUN_CALL;
+                    size_t last_idx = i + 1;
+                    size_t end_idx = i;
+                    int gb = 0;
+
+                    expr_t *args = NULL;
+                    size_t argc = 0;
+
+                    for (size_t j = last_idx; j < len; j++)
+                      {
+                        tok_t d = arr[j];
+
+                        if (d.type == TOK_OPERATOR)
+                          {
+                            sf_charptr p = d.v.t_op.v;
+
+                            if (sf_str_eq_rCp (p, ")") && !gb)
+                              {
+                                if (j != last_idx)
+                                  {
+                                    args = sfrealloc (
+                                        args, (argc + 1) * sizeof (*args));
+
+                                    args[argc++] = sf_ast_exprgen (
+                                        arr + last_idx, j - last_idx);
+                                  }
+
+                                end_idx = j;
+                                break;
+                              }
+
+                            if (sf_str_eq_rCp (p, ",") && !gb)
+                              {
+                                args = sfrealloc (args,
+                                                  (argc + 1) * sizeof (*args));
+
+                                args[argc++] = sf_ast_exprgen (arr + last_idx,
+                                                               j - last_idx);
+
+                                last_idx = j + 1;
+                                continue;
+                              }
+
+                            if (sf_str_inStr ("([{", p))
+                              gb++;
+
+                            else if (sf_str_inStr (")]}", p))
+                              gb--;
+                          }
+                      }
+
+                    assert (end_idx != i);
+
+                    res.v.fun_call.arg_count = argc;
+                    res.v.fun_call.args = args;
+                    res.v.fun_call.name = sfmalloc (sizeof (expr_t));
+                    *res.v.fun_call.name = pres_res;
 
                     i = end_idx;
                     goto l_end;
@@ -1054,7 +1219,7 @@ sf_ast_exprprint (expr_t e)
         printf ("args\n");
         for (size_t i = 0; i < e.v.fun_call.arg_count; i++)
           {
-            sf_ast_exprprint (*e.v.fun_call.args[i]);
+            sf_ast_exprprint (e.v.fun_call.args[i]);
           }
       }
       break;
@@ -1131,7 +1296,7 @@ sf_ast_exprprint (expr_t e)
       }
       break;
 
-    case EXPR_TOSTEP:
+    case EXPR_TOSTEPTYPE:
       {
         printf ("to_step\n");
 
@@ -1145,6 +1310,13 @@ sf_ast_exprprint (expr_t e)
 
         if (e.v.to_step.e_step)
           sf_ast_exprprint (*e.v.to_step.e_step);
+        else
+          printf ("null\n");
+
+        printf ("type\n");
+
+        if (e.v.to_step.e_type)
+          sf_ast_exprprint (*e.v.to_step.e_type);
         else
           printf ("null\n");
       }
