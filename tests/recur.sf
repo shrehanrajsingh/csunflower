@@ -1,0 +1,6 @@
+fun test(a)
+    put(a)
+    put('\n')
+    test(ctr())
+
+test(ctr())
