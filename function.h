@@ -32,11 +32,20 @@ struct _sf_fun_s
 
   } native;
 
+  struct
+  {
+    size_t id;
+    int has_id;
+
+  } meta;
+
   // .mod can store function body itself
   // no struct required for coded functions
 };
 
 typedef struct _sf_fun_s fun_t;
+
+#define SF_FUN_CACHE_SIZE 32
 
 #ifdef __cplusplus
 extern "C"
@@ -73,6 +82,10 @@ extern "C"
    * @return A pointer to the added function.
    */
   SF_API fun_t *sf_fun_add (fun_t *_Fun);
+
+  SF_API fun_t ***sf_fun_getStack (void);
+
+  SF_API void sf_fun_free (fun_t *_Fun);
 
 #ifdef __cplusplus
 }

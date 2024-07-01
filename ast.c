@@ -8,6 +8,7 @@ stmt_t _sf_stmt_ifblockgen (tok_t *_arr, size_t _idx, size_t *_jumper);
 stmt_t _sf_stmt_elseblockgen (tok_t *_arr, size_t _idx, size_t *_jumper);
 stmt_t _sf_stmt_elseifblockgen (tok_t *_arr, size_t _idx, size_t *_jumper);
 stmt_t _sf_stmt_forblockgen (tok_t *_arr, size_t _idx, size_t *_jumper);
+stmt_t _sf_stmt_fundeclgen (tok_t *_arr, size_t _idx, size_t *_jumper);
 
 /**
  * Function returns _arr + _C
@@ -111,6 +112,14 @@ sf_ast_stmtgen (tok_t *arr, size_t *sptr)
                 else if (sf_str_eq_rCp (cv, "for"))
                   {
                     stmt_t t = _sf_stmt_forblockgen (arr, i, &i);
+
+                    res = sfrealloc (res, (rc + 1) * sizeof (*res));
+                    res[rc++] = t;
+                  }
+
+                else if (sf_str_eq_rCp (cv, "fun"))
+                  {
+                    stmt_t t = _sf_stmt_fundeclgen (arr, i, &i);
 
                     res = sfrealloc (res, (rc + 1) * sizeof (*res));
                     res[rc++] = t;
@@ -1071,6 +1080,143 @@ end:
   return res;
 }
 
+stmt_t
+_sf_stmt_fundeclgen (tok_t *arr, size_t idx, size_t *jptr)
+{
+  stmt_t res;
+
+  res.type = STMT_FUN_DECL;
+  res.v.fun_decl.arg_count = 0;
+  res.v.fun_decl.args = NULL;
+  res.v.fun_decl.body = NULL;
+  res.v.fun_decl.body_count = 0;
+  res.v.fun_decl.name = NULL;
+
+  size_t name_end_idx = idx;
+  int gb = 0;
+  int takes_no_args = 0;
+
+  for (size_t i = idx + 1; arr[i].type != TOK_EOF; i++)
+    {
+      tok_t d = arr[i];
+
+      if (d.type == TOK_OPERATOR)
+        {
+          sf_charptr q = d.v.t_op.v;
+
+          if (sf_str_eq_rCp (q, "(") && !gb)
+            {
+              name_end_idx = i;
+              break;
+            }
+
+          if (sf_str_inStr ("([{", q))
+            gb++;
+
+          else if (sf_str_inStr (")]}", q))
+            gb--;
+        }
+
+      /*
+        fun test
+          return "Takes no arguments"
+      */
+      if (d.type == TOK_NEWLINE && !gb)
+        {
+          takes_no_args = 1;
+          name_end_idx = i - 1;
+          break;
+        }
+    }
+
+  assert (name_end_idx != idx);
+
+  expr_t *nam = sfmalloc (sizeof (*nam));
+  *nam = sf_ast_exprgen (arr + idx + 1, name_end_idx - idx - 1);
+
+  res.v.fun_decl.name = nam;
+
+  expr_t *args = NULL;
+  size_t argc = 0;
+  size_t arg_end_idx = idx;
+  size_t last_arg_idx = name_end_idx + 1;
+
+  gb = 0;
+
+  if (!takes_no_args)
+    {
+      for (size_t i = name_end_idx + 1; arr[i].type != TOK_EOF; i++)
+        {
+          tok_t d = arr[i];
+
+          if (d.type == TOK_OPERATOR)
+            {
+              sf_charptr q = d.v.t_op.v;
+
+              if (sf_str_eq_rCp (q, ")") && !gb)
+                {
+                  if (i != name_end_idx + 1)
+                    {
+                      args = sfrealloc (args, (argc + 1) * sizeof (*args));
+                      args[argc++] = sf_ast_exprgen (arr + last_arg_idx,
+                                                     i - last_arg_idx);
+                    }
+
+                  arg_end_idx = i;
+                  break;
+                }
+
+              if (sf_str_eq_rCp (q, ",") && !gb)
+                {
+                  args = sfrealloc (args, (argc + 1) * sizeof (*args));
+                  args[argc++]
+                      = sf_ast_exprgen (arr + last_arg_idx, i - last_arg_idx);
+
+                  last_arg_idx = i + 1;
+                }
+
+              if (sf_str_inStr ("([{", q))
+                gb++;
+
+              else if (sf_str_inStr (")]}", q))
+                gb--;
+            }
+        }
+    }
+  else
+    {
+      arg_end_idx = name_end_idx;
+    }
+
+  assert (arg_end_idx != idx);
+
+  res.v.fun_decl.args = args;
+  res.v.fun_decl.arg_count = argc;
+
+  tok_t *body_end = _sf_stmt_getblkend (arr + arg_end_idx + 1,
+                                        _sf_stmt_gettbsp (arr, idx));
+
+  tok_t pres_end = *body_end;
+  *body_end = (tok_t){
+    .type = TOK_EOF,
+  }; // end file at end of block (temporarily)
+
+  size_t sts = 0; // statement tree size
+  stmt_t *stree = sf_ast_stmtgen (arr + arg_end_idx + 1, &sts);
+
+  *body_end = pres_end;
+  res.v.fun_decl.body = stree;
+  res.v.fun_decl.body_count = sts;
+
+end:
+  if (jptr != NULL)
+    {
+      *jptr = (body_end - arr) - 1;
+    }
+
+  return res;
+}
+
 size_t
 _sf_stmt_gettbsp (tok_t *arr, size_t idx)
 {
@@ -1116,18 +1262,26 @@ _sf_stmt_getblkend (tok_t *arr, size_t tbs)
     {
       tok_t c = arr[i];
 
-      if (c.type != TOK_SPACE && saw_nl)
+      if (c.type != TOK_SPACE && c.type != TOK_NEWLINE && saw_nl)
         break;
 
       if (c.type == TOK_NEWLINE && !gb)
-        saw_nl = 1;
+        {
+          if (saw_nl)
+            continue;
+          saw_nl = 1;
+        }
 
       if (c.type == TOK_SPACE && !gb)
         {
           saw_nl = 0;
           if (c.v.t_space.v <= tbs)
             {
-              break;
+              if (arr[i + 1].type
+                  == TOK_NEWLINE) // empty line with some tabspaces
+                ;
+              else
+                break;
             }
         }
 
@@ -1148,12 +1302,23 @@ sf_ast_freeObj (obj_t **obj)
 {
   obj_t *p = *obj;
 
+  if (p == NULL)
+    {
+      e_printf ("*obj is NULL at sf_ast_freeObj()\n");
+      return;
+    }
+
   switch (p->type)
     {
     case OBJ_ARRAY:
       {
-        // here;
         sf_array_free (p->v.o_array.v);
+      }
+      break;
+
+    case OBJ_FUN:
+      {
+        sf_fun_free (p->v.o_fun.f);
       }
       break;
 
@@ -1397,16 +1562,16 @@ sf_ast_stmtprint (stmt_t s)
 
     case STMT_FUN_DECL:
       {
-        printf ("fun_decl\n");
+        printf ("fun_decl\nname\n");
         sf_ast_exprprint (*s.v.fun_decl.name);
 
-        printf ("args\n");
+        printf ("args (%d)\n", s.v.fun_decl.arg_count);
         for (size_t i = 0; i < s.v.fun_decl.arg_count; i++)
           {
             sf_ast_exprprint (s.v.fun_decl.args[i]);
           }
 
-        printf ("body\n");
+        printf ("body (%d)\n", s.v.fun_decl.body_count);
         for (size_t i = 0; i < s.v.fun_decl.body_count; i++)
           {
             sf_ast_stmtprint (s.v.fun_decl.body[i]);

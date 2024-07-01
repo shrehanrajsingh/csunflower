@@ -21,12 +21,12 @@ enum
  *
  * This structure defines the properties of a mod, which is a module or
  * function in the Sunflower project. It contains information such as the mod
- * type, virtual function table, body, return value, and parent mod.
+ * type, variable table, body, return value, and parent mod.
  */
 struct _mod_s
 {
   int type;       // type of the mod
-  trie_t *vtable; // virtual function table
+  trie_t *vtable; // variable table
 
   stmt_t *body;    // body of the mod
   size_t body_len; // length of the body

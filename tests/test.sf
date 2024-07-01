@@ -1,3 +1,6 @@
-name = input('Name: ')
-put("Your name is:")
-put(name)
+fun test(a)
+    put(a)
+    put('\n')
+    test(ctr())
+
+test(ctr())

@@ -21,13 +21,14 @@ sf_mod_addVar (mod_t *mod, char *name, llnode_t *ref)
 
   if (l != NULL)
     {
+      // here;
       sf_ll_set_meta_refcount (l, l->meta.ref_count - 1);
     }
 
   sf_trie_add (mod->vtable, name, (void *)ref);
   sf_ll_set_meta_refcount (ref, ref->meta.ref_count + 1);
 
-  // printf ("%d\n", ref->meta.ref_count);
+  // printf ("%s %d %d\n", name, ref->meta.ref_count, l == NULL);
 
   return ref;
 }
@@ -41,7 +42,7 @@ sf_mod_getVar (mod_t *mod, const char *name)
       return NULL;
     }
 
-  llnode_t *res = sf_trie_getVal (mod->vtable, (char *)name);
+  llnode_t *res = (llnode_t *)sf_trie_getVal (mod->vtable, (char *)name);
 
   if (res == NULL)
     return sf_mod_getVar (mod->parent, name);
@@ -52,17 +53,23 @@ sf_mod_getVar (mod_t *mod, const char *name)
 SF_API void
 sf_mod_free (mod_t *mod)
 {
+  mod->parent = NULL;
   char **allkeys = sf_trie_getKeys (mod->vtable);
 
   for (size_t i = 0; allkeys[i] != NULL; i++)
     {
       llnode_t *v = sf_trie_getVal (mod->vtable, allkeys[i]);
+      // printf ("%s %d\n", allkeys[i], v->meta.ref_count);
       sf_ll_set_meta_refcount (v, v->meta.ref_count - 1);
 
       sffree (allkeys[i]);
     }
 
-  sf_ll_set_meta_refcount (mod->retv, mod->retv->meta.ref_count - 1);
+  if (allkeys != NULL)
+    sffree (allkeys);
+
+  if (mod->retv != NULL)
+    sf_ll_set_meta_refcount (mod->retv, mod->retv->meta.ref_count - 1);
 
   sf_trie_free (mod->vtable);
   sffree (mod);

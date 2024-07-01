@@ -32,11 +32,16 @@ test1 ()
   sf_trie_add (t, "abc013292__19", NULL);
 
   char **r = sf_trie_getKeys (t);
-  while (*r != NULL)
+
+  for (size_t i = 0; r[i] != NULL; i++)
     {
-      printf ("%s\n", *r);
-      r++;
+      printf ("%s\n", r[i]);
+      sffree (r[i]);
     }
+
+  sffree (r);
+
+  sf_trie_free (t);
 }
 
 void
@@ -190,7 +195,7 @@ put_fun_rt (mod_t *mod)
 
   char *p;
   int c = 0;
-  c += printf ("%s\n", p = sf_parser_objRepr (mod, arg));
+  c += printf ("%s", p = sf_parser_objRepr (mod, arg));
 
   sffree (p);
 
@@ -224,6 +229,19 @@ input_fun_rt (mod_t *mod)
   r->type = OBJ_CONST;
   r->v.o_const.type = CONST_STRING;
   r->v.o_const.v.c_string.v = inp;
+
+  return sf_ot_addobj (r);
+}
+
+llnode_t *
+ctr_fun_rt (mod_t *mod)
+{
+  static int c = 0;
+
+  obj_t *r = sfmalloc (sizeof (*r));
+  r->type = OBJ_CONST;
+  r->v.o_const.type = CONST_INT;
+  r->v.o_const.v.c_int.v = c++;
 
   return sf_ot_addobj (r);
 }
@@ -298,6 +316,25 @@ test5 ()
 
   /********************************************* */
 
+  /********************************************* */
+  /* ctr() function */
+
+  {
+    mod_t *ctr_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+
+    fun_t *ctr_fun = sf_fun_new ("ctr", SF_FUN_NATIVE, ctr_mod, ctr_fun_rt);
+
+    fun_t *ctrp = sf_fun_add (ctr_fun);
+
+    obj_t *ctr_obj = sfmalloc (sizeof (obj_t));
+    ctr_obj->type = OBJ_FUN;
+    ctr_obj->v.o_fun.f = ctrp;
+
+    sf_mod_addVar (m, "ctr", sf_ot_addobj (ctr_obj));
+  }
+
+  /********************************************* */
+
   // while (1)
   {
     sf_parser_exec (m);
@@ -327,6 +364,7 @@ main (int argc, char const *argv[])
   sf_fun_init ();
   sf_array_init ();
 
+  // while (1)
   TEST (5);
 
   fclose (SF_DEBUG_DUMP);

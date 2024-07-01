@@ -96,7 +96,8 @@ _sftgk (trie_t *t, char *k)
           mk[kl + 1] = '\0';
         }
 
-      char **rl = _sftgk (t->nodes[i], sfstrdup (mk));
+      char **rl = _sftgk (t->nodes[i], mk);
+      sffree (mk);
       size_t rlc = 0;
 
       while (rl[rlc] != NULL)
@@ -107,12 +108,13 @@ _sftgk (trie_t *t, char *k)
 
       while (rl[j] != NULL)
         {
-          res[rc + j] = rl[j];
+          res[rc + j] = sfstrdup (rl[j]);
+          sffree (rl[j]);
           j++;
         }
 
+      sffree (rl);
       rc += j;
-      sffree (mk);
     }
 
   res = sfrealloc (res, (rc + 1) * sizeof (*res));
@@ -178,5 +180,6 @@ sf_trie_free (trie_t *t)
       sf_trie_free (t->nodes[i]);
     }
 
+  sffree (t->nodes);
   sffree (t);
 }

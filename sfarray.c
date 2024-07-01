@@ -66,6 +66,9 @@ sf_array_add (array_t *arr)
 SF_API void
 sf_array_free (array_t *arr)
 {
+  if (achc_count < SF_ARR_CACHE_SIZE && arr->meta.has_id)
+    ARR_CACHE[achc_count++] = arr->meta.id;
+
   for (size_t i = 0; i < arr->len; i++)
     {
       //   printf ("%d\n", arr->vals[i]->meta.ref_count);
@@ -79,7 +82,4 @@ sf_array_free (array_t *arr)
   arr->vals = NULL;
 
   sffree (arr);
-
-  if (achc_count < SF_ARR_CACHE_SIZE && arr->meta.has_id)
-    ARR_CACHE[achc_count++] = arr->meta.id;
 }
