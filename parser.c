@@ -4,8 +4,10 @@ llnode_t *eval_expr (mod_t *, expr_t *);
 llnode_t *_sf_fcall (mod_t *, expr_t *);
 
 void _sf_exec_block_for (mod_t *, int);
+void _sf_exec_block_if (mod_t *, int *);
 
 int _sf_obj_cmp (mod_t *, obj_t *, obj_t *);
+int _sf_obj_isfalse (mod_t *, obj_t *);
 
 SF_API parser_rt
 sf_parser_exec (mod_t *mod)
@@ -133,6 +135,12 @@ sf_parser_exec (mod_t *mod)
         case STMT_FOR_BLOCK:
           {
             _sf_exec_block_for (mod, i);
+          }
+          break;
+
+        case STMT_IF_BLOCK:
+          {
+            _sf_exec_block_if (mod, &i);
           }
           break;
 
@@ -448,14 +456,14 @@ end:
 void
 _sf_exec_block_for (mod_t *mod, int i)
 {
-  stmt_t t = mod->body[i];
-  expr_t *cn = t.v.blk_for.cond;
+  stmt_t *t = &mod->body[i];
+  expr_t *cn = t->v.blk_for.cond;
 
   stmt_t *body_pres = mod->body;
   size_t bl_pres = mod->body_len;
 
-  mod->body = t.v.blk_for.body;
-  mod->body_len = t.v.blk_for.body_count;
+  mod->body = t->v.blk_for.body;
+  mod->body_len = t->v.blk_for.body_count;
 
   int got_break_signal = 0;
 
@@ -524,6 +532,197 @@ _sf_exec_block_for (mod_t *mod, int i)
       mod->body = body_pres;
       mod->body_len = bl_pres;
     }
+}
+
+int
+_sf_obj_isfalse (mod_t *mod, obj_t *o)
+{
+  switch (o->type)
+    {
+    case OBJ_CONST:
+      {
+        switch (o->v.o_const.type)
+          {
+          case CONST_INT:
+            return o->v.o_const.v.c_int.v == 0;
+            break;
+
+          case CONST_FLOAT:
+            return o->v.o_const.v.c_float.v == 0.0;
+            break;
+
+          case CONST_BOOL:
+            return o->v.o_const.v.c_bool.v == 0;
+            break;
+
+          case CONST_STRING:
+            return sf_str_eq_rCp (o->v.o_const.v.c_string.v, "");
+            break;
+
+          default:
+            break;
+          }
+      }
+      break;
+
+    case OBJ_ARRAY:
+      {
+        array_t *t = o->v.o_array.v;
+
+        return t->len == 0;
+      }
+      break;
+
+    case OBJ_FUN:
+      goto end;
+      break;
+
+    default:
+      break;
+    }
+
+end:
+  return 0;
+}
+
+void
+_sf_exec_block_if (mod_t *mod, int *ip)
+{
+  int i = *ip;
+  stmt_t *t = &mod->body[i];
+
+  llnode_t *o = eval_expr (mod, t->v.blk_if.cond);
+  sf_ll_set_meta_refcount (o, o->meta.ref_count + 1);
+
+  obj_t *cval = (obj_t *)o->val;
+
+  if (_sf_obj_isfalse (mod, cval))
+    {
+      // Condition is false
+
+      if (i < mod->body_len - 1)
+        {
+          (*ip)++;
+          stmt_t *ntok = &mod->body[*ip];
+
+          if (ntok->type == STMT_ELSE_BLOCK)
+            {
+              stmt_t *body_pres = mod->body;
+              size_t blen_pres = mod->body_len;
+
+              mod->body = ntok->v.blk_else.body;
+              mod->body_len = ntok->v.blk_else.body_count;
+
+              sf_parser_exec (mod);
+
+              mod->body = body_pres;
+              mod->body_len = blen_pres;
+            }
+
+          else if (ntok->type == STMT_ELSEIF_BLOCK)
+            {
+              int state = 0;
+              do
+                {
+                  if (ntok->type != STMT_ELSEIF_BLOCK)
+                    break;
+
+                  llnode_t *elo = eval_expr (mod, ntok->v.blk_elseif.cond);
+                  sf_ll_set_meta_refcount (elo, elo->meta.ref_count + 1);
+
+                  obj_t *elo_obj = (obj_t *)elo->val;
+
+                  if (!_sf_obj_isfalse (mod, elo_obj))
+                    {
+                      stmt_t *body_pres = mod->body;
+                      size_t blen_pres = mod->body_len;
+
+                      mod->body = ntok->v.blk_elseif.body;
+                      mod->body_len = ntok->v.blk_elseif.body_count;
+
+                      sf_parser_exec (mod);
+
+                      mod->body = body_pres;
+                      mod->body_len = blen_pres;
+
+                      state = 1;
+                      sf_ll_set_meta_refcount (elo, elo->meta.ref_count - 1);
+
+                      while (*ip < mod->body_len
+                             && (mod->body[*ip].type == STMT_ELSEIF_BLOCK
+                                 || mod->body[*ip].type == STMT_ELSE_BLOCK))
+                        {
+                          (*ip)++;
+                        }
+
+                      break;
+                    }
+
+                  sf_ll_set_meta_refcount (elo, elo->meta.ref_count - 1);
+                  (*ip)++;
+                  ntok = &mod->body[*ip];
+                }
+              while (*ip < mod->body_len);
+
+              if (!state && ntok->type == STMT_ELSE_BLOCK)
+                {
+                  // execute else (if a block exists)
+
+                  stmt_t *body_pres = mod->body;
+                  size_t blen_pres = mod->body_len;
+
+                  mod->body = ntok->v.blk_else.body;
+                  mod->body_len = ntok->v.blk_else.body_count;
+
+                  sf_parser_exec (mod);
+
+                  mod->body = body_pres;
+                  mod->body_len = blen_pres;
+                }
+            }
+        }
+    }
+
+  else
+    {
+      // Condition is true
+      stmt_t *body_pres = mod->body;
+      size_t blen_pres = mod->body_len;
+
+      mod->body = t->v.blk_if.body;
+      mod->body_len = t->v.blk_if.body_count;
+
+      sf_parser_exec (mod);
+
+      mod->body = body_pres;
+      mod->body_len = blen_pres;
+
+      if (i < mod->body_len - 1)
+        {
+          stmt_t *ntok = &mod->body[i + 1];
+
+          if (ntok->type == STMT_ELSE_BLOCK)
+            {
+              *ip++;
+            }
+
+          else if (ntok->type == STMT_ELSEIF_BLOCK)
+            {
+              do
+                {
+                  *ip++;
+                }
+              while (*ip < mod->body_len
+                     && mod->body[*ip].type == STMT_ELSEIF_BLOCK);
+
+              if (*ip < mod->body_len
+                  && mod->body[*ip].type == STMT_ELSE_BLOCK)
+                *ip++;
+            }
+        }
+    }
+
+  sf_ll_set_meta_refcount (o, o->meta.ref_count - 1);
 }
 
 llnode_t *
@@ -772,10 +971,10 @@ sf_parser_objRepr (mod_t *mod, obj_t *obj)
           case CONST_BOOL:
             {
               if (obj->v.o_const.v.c_bool.v)
-                res = sf_str_new_fromStr ("True");
+                res = sf_str_new_fromStr (SF_BOOL_TRUE_REPR);
 
               else
-                res = sf_str_new_fromStr ("False");
+                res = sf_str_new_fromStr (SF_BOOL_FALSE_REPR);
             }
             break;
 

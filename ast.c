@@ -367,6 +367,13 @@ sf_ast_exprgen (tok_t *arr, size_t len)
                     goto end;
                   }
               }
+            else if (c.v.t_ident.is_bool)
+              {
+                res.type = EXPR_CONSTANT;
+                res.v.e_const.type = CONST_BOOL;
+                res.v.e_const.v.c_bool.v
+                    = sf_str_eq_rCp (c.v.t_ident.v, SF_BOOL_TRUE_REPR);
+              }
             else
               {
                 res.type = EXPR_VAR;
@@ -579,7 +586,7 @@ sf_ast_exprgen (tok_t *arr, size_t len)
                     else
                       res.v.e_array.vals = NULL;
 
-                    i = end_idx;
+                    i = end_idx - 1;
                     goto l_end;
                   }
                 else
@@ -627,7 +634,7 @@ sf_ast_exprgen (tok_t *arr, size_t len)
 
                     // printf ("{%d}\n", res.v.e_idx_access.val->type);
 
-                    i = end_idx;
+                    i = end_idx - 1;
                     goto l_end;
                   }
               }
@@ -696,7 +703,7 @@ sf_ast_exprgen (tok_t *arr, size_t len)
                     res.v.fun_call.name = sfmalloc (sizeof (expr_t));
                     *res.v.fun_call.name = pres_res;
 
-                    i = end_idx;
+                    i = end_idx - 1;
                     goto l_end;
                   }
               }

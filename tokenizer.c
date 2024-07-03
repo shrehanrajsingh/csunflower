@@ -28,6 +28,8 @@ sf_tokenizer_gen (const char *data)
           n.type = TOK_IDENTIFIER;
           n.v.t_ident.v = sf_str_new_fromStr (r);
           n.v.t_ident.is_reserved = _sf_identifierisreserved (r);
+          n.v.t_ident.is_bool = !strcmp (r, SF_BOOL_TRUE_REPR)
+                                || !strcmp (r, SF_BOOL_FALSE_REPR);
 
           res = sfrealloc (res, (rc + 1) * sizeof (*res));
           res[rc++] = n;

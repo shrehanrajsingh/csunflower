@@ -49,6 +49,7 @@ struct _sf_tok_s
     {
       sf_charptr v;
       int is_reserved;
+      int is_bool;
     } t_ident; /* identifier */
 
     struct
