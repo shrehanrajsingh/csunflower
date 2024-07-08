@@ -17,6 +17,8 @@ add_library(sunflower
     parser.h parser.c
     function.h function.c
     sfarray.h sfarray.c
+    arithmetic.h arithmetic.c
+    tree.h tree.c
     header.h
 )
 

@@ -11,4 +11,5 @@
 #include "sfmod.h"
 #include "sfstr.h"
 #include "tokenizer.h"
+#include "tree.h"
 #include "trie.h"

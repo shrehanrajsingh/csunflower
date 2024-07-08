@@ -679,6 +679,8 @@ _sf_exec_block_if (mod_t *mod, int *ip)
                   mod->body = body_pres;
                   mod->body_len = blen_pres;
                 }
+              else
+                (*ip)--;
             }
         }
     }
@@ -960,7 +962,8 @@ sf_parser_objRepr (mod_t *mod, obj_t *obj)
           case CONST_FLOAT:
             {
               char *r = sfmalloc (32 * sizeof (*r));
-              sprintf (r, "%d", obj->v.o_const.v.c_float.v);
+
+              sprintf (r, "%g", obj->v.o_const.v.c_float.v);
 
               res = sf_str_new_fromStr (r);
 

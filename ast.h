@@ -1,9 +1,11 @@
 #pragma once
 
+#include "arithmetic.h"
 #include "function.h"
 #include "header.h"
 #include "sfmem.h"
 #include "tokenizer.h"
+#include "tree.h"
 
 /**
  * Three divisions of ASTs
@@ -46,6 +48,7 @@ enum
   EXPR_INCLAUSE = 11,
   EXPR_ARRAY = 12,
   EXPR_IDX_ACCESS = 13,
+  EXPR_ARITHMETIC = 14,
 };
 
 enum // Used for both constant types for expr and obj_t
@@ -238,6 +241,12 @@ struct _expr_s
       struct _expr_s *val;
 
     } e_idx_access;
+
+    struct
+    {
+      tree_t *tree;
+
+    } e_arith;
 
   } v;
 };

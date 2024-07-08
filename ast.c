@@ -707,6 +707,125 @@ sf_ast_exprgen (tok_t *arr, size_t len)
                     goto l_end;
                   }
               }
+
+            else if (sf_str_inStr ("+-*/%", p))
+              {
+                __sfapostfix_tree *atree = sfmalloc (len * sizeof (*atree));
+                size_t ac = 0;
+
+                atree[ac] = (__sfapostfix_tree){
+                  .is_op = 0,
+                  .v.val = sfmalloc (sizeof (expr_t)),
+                };
+
+                *atree[ac].v.val = res;
+                ac++;
+
+                atree[ac++] = (__sfapostfix_tree){
+                  .is_op = 1,
+                  .v.op = sfstrdup (SFCPTR_TOSTR (p)),
+                };
+
+                int all_constants = (res.type == EXPR_CONSTANT);
+
+                int gb = 0;
+                size_t last_op_idx = i;
+                for (size_t j = i + 1; j < len; j++)
+                  {
+                    tok_t *c = &arr[j];
+
+                    if (c->type == TOK_OPERATOR && !gb)
+                      {
+                        sf_charptr p = c->v.t_op.v;
+
+                        if (sf_str_inStr ("([{", p))
+                          gb++;
+
+                        if (sf_str_inStr (")]}", p))
+                          gb--;
+
+                        if (sf_str_inStr ("+-*/", p))
+                          {
+                            expr_t ev = sf_ast_exprgen (arr + last_op_idx + 1,
+                                                        j - last_op_idx - 1);
+
+                            all_constants
+                                = all_constants && (ev.type == EXPR_CONSTANT);
+
+                            expr_t *evp = sfmalloc (sizeof (*evp));
+                            *evp = ev;
+
+                            atree[ac++] = (__sfapostfix_tree){
+                              .is_op = 0,
+                              .v.val = evp,
+                            };
+
+                            atree[ac++] = (__sfapostfix_tree){
+                              .is_op = 1,
+                              .v.op = sfstrdup (SFCPTR_TOSTR (p)),
+                            };
+
+                            last_op_idx = j;
+                          }
+                      }
+                  }
+
+                expr_t ev = sf_ast_exprgen (arr + last_op_idx + 1,
+                                            len - last_op_idx - 1);
+
+                all_constants = all_constants && (ev.type == EXPR_CONSTANT);
+
+                expr_t *evp = sfmalloc (sizeof (*evp));
+                *evp = ev;
+
+                atree[ac++] = (__sfapostfix_tree){
+                  .is_op = 0,
+                  .v.val = evp,
+                };
+
+                /* INFIX TREE */
+                /* for (size_t j = 0; j < ac; j++)
+                  {
+                    if (atree[j].is_op)
+                      {
+                        printf ("op: %s\n", atree[j].v.op);
+                      }
+                    else
+                      {
+                        sf_ast_exprprint (*atree[j].v.val);
+                      }
+                  } */
+
+                sf_arith_infix_to_postfix (&atree, &ac);
+
+                /* POSTFIX TREE */
+                /* for (size_t j = 0; j < ac; j++)
+                  {
+                    if (atree[j].is_op)
+                      {
+                        printf ("op: %s\n", atree[j].v.op);
+                      }
+                    else
+                      {
+                        sf_ast_exprprint (*atree[j].v.val);
+                      }
+                  } */
+
+                res.type = EXPR_ARITHMETIC;
+                res.v.e_arith.tree = sf_arith_pft_to_tree (atree, ac);
+
+                if (all_constants)
+                  {
+                    double arith_res = sf_arith_eval_tree (res.v.e_arith.tree);
+
+                    res.type = EXPR_CONSTANT;
+                    res.v.e_const.type = CONST_FLOAT;
+                    res.v.e_const.v.c_float.v = arith_res;
+                  }
+
+                sffree (atree);
+                goto end;
+              }
           }
 
         default:
@@ -1336,6 +1455,18 @@ sf_ast_freeObj (obj_t **obj)
   sffree (*obj);
 }
 
+void
+__sfexprprintarith (void *arg)
+{
+  struct _sfa_treetok_s *cur = arg;
+
+  if (cur->is_op)
+    printf ("op: %s\n", cur->v.op);
+
+  else
+    sf_ast_exprprint (*cur->v.val);
+}
+
 SF_API void
 sf_ast_exprprint (expr_t e)
 {
@@ -1349,7 +1480,7 @@ sf_ast_exprprint (expr_t e)
             printf ("const_bool %d\n", e.v.e_const.v.c_bool.v);
             break;
           case CONST_FLOAT:
-            printf ("const_float %d\n", e.v.e_const.v.c_float.v);
+            printf ("const_float %f\n", e.v.e_const.v.c_float.v);
             break;
           case CONST_INT:
             printf ("const_int %d\n", e.v.e_const.v.c_int.v);
@@ -1528,6 +1659,13 @@ sf_ast_exprprint (expr_t e)
 
         printf ("val\n");
         sf_ast_exprprint (*e.v.e_idx_access.val);
+      }
+      break;
+
+    case EXPR_ARITHMETIC:
+      {
+        printf ("expr_arith\n");
+        sf_tree_traverse_pre (e.v.e_arith.tree, __sfexprprintarith);
       }
       break;
 

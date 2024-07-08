@@ -355,6 +355,47 @@ test5 ()
   //   }
 }
 
+void
+t6btr (void *arg)
+{
+  printf ("%s\n", arg);
+}
+
+void
+test6 ()
+{
+  tree_t *t = sf_tree_new ("Root", NULL, NULL);
+
+  sf_tree_addleft_leaf (t, "Level 1(l)");
+  sf_tree_addleft_leaf (t, "Level 2(ll)");
+  sf_tree_addleft_leaf (t, "Level 3(lll)");
+  sf_tree_addleft_leaf (t, "Level 4(llll)");
+  sf_tree_addleft_leaf (t, "Level 5(lllll)");
+
+  sf_tree_addright_leaf (t, "Level 1(r)");
+  sf_tree_addright_leaf (t, "Level 2(rr)");
+  sf_tree_addright_leaf (t, "Level 3(rrr)");
+  sf_tree_addright_leaf (t, "Level 4(rrrr)");
+
+  sf_tree_addright_leaf (t->left, "Level 2(lr)");
+  sf_tree_addleft_leaf (t->left->right, "Level 3(lrl)");
+  sf_tree_addleft_leaf (t->right, "Level 2(rl)");
+
+  printf ("PREORDER: \n");
+  sf_tree_traverse_pre (t, t6btr);
+
+  printf ("INORDER: \n");
+  sf_tree_traverse_in (t, t6btr);
+
+  printf ("POSTORDER: \n");
+  sf_tree_traverse_post (t, t6btr);
+
+  printf ("LEVELORDER: \n");
+  sf_tree_traverse_levelord (t, t6btr);
+
+  sf_tree_free (t);
+}
+
 int
 main (int argc, char const *argv[])
 {
@@ -365,6 +406,11 @@ main (int argc, char const *argv[])
   sf_array_init ();
 
   // while (1)
+
+  // Code 3: dump ast tree
+  // Code 4: linked list test
+  // Code 5: parser
+  // Code 6: tree test
   TEST (5);
 
   fclose (SF_DEBUG_DUMP);
