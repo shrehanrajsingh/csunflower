@@ -1,6 +1,7 @@
 #pragma once
 
 #include "header.h"
+#include "llist.h"
 #include "sfmem.h"
 #include "sfstr.h"
 #include "tree.h"
@@ -21,6 +22,9 @@ struct _sfa_postfix_tree
 struct _sfa_treetok_s
 {
   int is_op;
+
+  int is_llnode;
+  llnode_t *node;
 
   union
   {
@@ -43,6 +47,8 @@ extern "C"
   SF_API tree_t *sf_arith_pft_to_tree (__sfapostfix_tree *, int);
 
   SF_API double sf_arith_eval_tree (tree_t *);
+
+  SF_API tree_t *sf_arith_tree_copyd (tree_t *);
 
 #ifdef __cplusplus
 }

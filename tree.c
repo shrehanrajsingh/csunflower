@@ -107,7 +107,6 @@ _sttll_sr (tree_t *n, int h, struct _hgt *arr, int *ac)
 SF_API void
 sf_tree_traverse_levelord (tree_t *t, __sftreetraversal_ret_routine r)
 {
-  // 2^n - 1 maximum nodes
   int h = sf_tree_height (t);
   int cn = sf_tree_countNodes (t);
 
@@ -137,6 +136,9 @@ sf_tree_traverse_levelord (tree_t *t, __sftreetraversal_ret_routine r)
 SF_API void
 sf_tree_free (tree_t *t)
 {
+  if (t == NULL)
+    return;
+
   if (t->left)
     sf_tree_free (t->left);
 

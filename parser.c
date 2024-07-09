@@ -2,6 +2,7 @@
 
 llnode_t *eval_expr (mod_t *, expr_t *);
 llnode_t *_sf_fcall (mod_t *, expr_t *);
+llnode_t *_sf_ev_arith (mod_t *, expr_t *);
 
 void _sf_exec_block_for (mod_t *, int);
 void _sf_exec_block_if (mod_t *, int *);
@@ -311,9 +312,22 @@ eval_expr (mod_t *mod, expr_t *e)
             obj_t *ob_o = (obj_t *)stp->val;
 
             assert (ob_o->type == OBJ_CONST
-                    && ob_o->v.o_const.type == CONST_INT);
+                    && (ob_o->v.o_const.type == CONST_INT
+                        || ob_o->v.o_const.type == CONST_FLOAT));
 
             step_c = ob_o->v.o_const.v.c_int.v;
+
+            if (ob_o->v.o_const.type == CONST_INT)
+              {
+                step_c = ob_o->v.o_const.v.c_int.v;
+              }
+            else
+              {
+                assert (ceilf (ob_o->v.o_const.v.c_float.v)
+                        == ob_o->v.o_const.v.c_float.v);
+
+                step_c = ob_o->v.o_const.v.c_float.v;
+              }
           }
 
         if (e->v.to_step.e_type != NULL)
@@ -341,23 +355,72 @@ eval_expr (mod_t *mod, expr_t *e)
         obj_t *lv_o = (obj_t *)lv->val;
         obj_t *rv_o = (obj_t *)rv->val;
 
-        assert (lv_o->type == OBJ_CONST && lv_o->v.o_const.type == CONST_INT);
-        assert (rv_o->type == OBJ_CONST && rv_o->v.o_const.type == CONST_INT);
+        assert (lv_o->type == OBJ_CONST && lv_o->v.o_const.type == CONST_INT
+                || lv_o->v.o_const.type == CONST_FLOAT);
 
-        l_val = lv_o->v.o_const.v.c_int.v;
-        r_val = rv_o->v.o_const.v.c_int.v;
+        assert (rv_o->type == OBJ_CONST && rv_o->v.o_const.type == CONST_INT
+                || rv_o->v.o_const.type == CONST_FLOAT);
+
+        if (lv_o->v.o_const.type == CONST_INT)
+          {
+            l_val = lv_o->v.o_const.v.c_int.v;
+          }
+        else
+          {
+            assert (ceilf (lv_o->v.o_const.v.c_float.v)
+                    == lv_o->v.o_const.v.c_float.v);
+            l_val = lv_o->v.o_const.v.c_float.v;
+          }
+
+        if (rv_o->v.o_const.type == CONST_INT)
+          {
+            r_val = rv_o->v.o_const.v.c_int.v;
+          }
+        else
+          {
+            assert (ceilf (rv_o->v.o_const.v.c_float.v)
+                    == rv_o->v.o_const.v.c_float.v);
+            r_val = rv_o->v.o_const.v.c_float.v;
+          }
 
         array_t *narr = sf_array_new ();
 
-        for (int i = l_val + (tp_val[0] != '[');
-             i < r_val + (tp_val[1] == ']'); i += step_c)
+        if (l_val + (tp_val[0] != '[') < r_val + (tp_val[1] == ']'))
           {
-            obj_t *v = sfmalloc (sizeof (*v));
-            v->type = OBJ_CONST;
-            v->v.o_const.type = CONST_INT;
-            v->v.o_const.v.c_int.v = i;
+            // assert (step_c > 0);
 
-            sf_array_pushVal (narr, sf_ot_addobj (v));
+            if (step_c > 0)
+              {
+                for (int i = l_val + (tp_val[0] != '[');
+                     i < r_val + (tp_val[1] == ']'); i += step_c)
+                  {
+                    obj_t *v = sfmalloc (sizeof (*v));
+                    v->type = OBJ_CONST;
+                    v->v.o_const.type = CONST_INT;
+                    v->v.o_const.v.c_int.v = i;
+
+                    sf_array_pushVal (narr, sf_ot_addobj (v));
+                  }
+              }
+          }
+
+        else
+          {
+            // assert (step_c < 0);
+
+            if (step_c < 0)
+              {
+                for (int i = l_val + (tp_val[0] != '[');
+                     i > r_val + (tp_val[1] == ']'); i += step_c)
+                  {
+                    obj_t *v = sfmalloc (sizeof (*v));
+                    v->type = OBJ_CONST;
+                    v->v.o_const.type = CONST_INT;
+                    v->v.o_const.v.c_int.v = i;
+
+                    sf_array_pushVal (narr, sf_ot_addobj (v));
+                  }
+              }
           }
 
         obj_t *res = sfmalloc (sizeof (*res));
@@ -440,6 +503,12 @@ eval_expr (mod_t *mod, expr_t *e)
 
         sf_ll_set_meta_refcount (lv, lv->meta.ref_count - 1);
         sf_ll_set_meta_refcount (rv, rv->meta.ref_count - 1);
+      }
+      break;
+
+    case EXPR_ARITHMETIC:
+      {
+        r = _sf_ev_arith (mod, e);
       }
       break;
 
@@ -557,6 +626,10 @@ _sf_obj_isfalse (mod_t *mod, obj_t *o)
 
           case CONST_STRING:
             return sf_str_eq_rCp (o->v.o_const.v.c_string.v, "");
+            break;
+
+          case CONST_NONE:
+            return 1;
             break;
 
           default:
@@ -730,100 +803,143 @@ _sf_exec_block_if (mod_t *mod, int *ip)
 llnode_t *
 _sf_fcall (mod_t *mod, expr_t *e)
 {
-  llnode_t *name = eval_expr (mod, e->v.fun_call.name);
-  obj_t *fref = name->val;
-
-  sf_ll_set_meta_refcount (name, name->meta.ref_count + 1);
-
-  // printf ("[%s]\n", sf_parser_objRepr (mod, fref));
-  // printf ("%s\n", e->v.fun_call.name->v.var.name);
-
-  llnode_t *res = NULL;
-
-  mod_t *nmod = sf_mod_new (MOD_TYPE_FUNC, NULL);
-
-  switch (fref->type)
+  if (e->v.fun_call.name->type != -1)
     {
-    case OBJ_FUN:
-      {
-        fun_t *fn = fref->v.o_fun.f;
-        // mod_t *par_pres = fn->mod->parent;
+      llnode_t *name = eval_expr (mod, e->v.fun_call.name);
+      obj_t *fref = name->val;
 
-        nmod->type = fn->mod->type;
-        nmod->body = fn->mod->body;
-        nmod->body_len = fn->mod->body_len;
+      sf_ll_set_meta_refcount (name, name->meta.ref_count + 1);
 
-        assert (fn->argc == e->v.fun_call.arg_count);
+      // printf ("[%s]\n", sf_parser_objRepr (mod, fref));
+      // printf ("%s\n", e->v.fun_call.name->v.var.name);
 
-        for (size_t j = 0; j < fn->argc; j++)
+      llnode_t *res = NULL;
+
+      mod_t *nmod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+
+      switch (fref->type)
+        {
+        case OBJ_FUN:
           {
-            expr_t *ee = sfmalloc (sizeof (*ee));
-            *ee = e->v.fun_call.args[j];
+            fun_t *fn = fref->v.o_fun.f;
+            // mod_t *par_pres = fn->mod->parent;
 
-            llnode_t *on = eval_expr (mod, ee);
+            nmod->type = fn->mod->type;
+            nmod->body = fn->mod->body;
+            nmod->body_len = fn->mod->body_len;
 
-            sffree (ee);
-            // printf ("%s\n", fn->args[j]);
-            sf_mod_addVar (nmod, fn->args[j], on);
-          }
+            assert (fn->argc == e->v.fun_call.arg_count);
 
-        nmod->parent = fn->mod->parent;
-
-        if (fn->type == SF_FUN_NATIVE)
-          {
-            res = fn->native.routine (nmod);
-          }
-
-        else
-          {
-            // printf ("%d\n", fn->mod->body_len);
-            sf_parser_exec (nmod);
-
-            if (nmod->retv != NULL)
+            for (size_t j = 0; j < fn->argc; j++)
               {
-                res = nmod->retv;
+                expr_t *ee = sfmalloc (sizeof (*ee));
+                *ee = e->v.fun_call.args[j];
+
+                llnode_t *on = eval_expr (mod, ee);
+
+                sffree (ee);
+                // printf ("%s\n", fn->args[j]);
+                sf_mod_addVar (nmod, fn->args[j], on);
               }
+
+            nmod->parent = fn->mod->parent;
+
+            if (fn->type == SF_FUN_NATIVE)
+              {
+                res = fn->native.routine (nmod);
+              }
+
             else
               {
-                obj_t *rv = sfmalloc (sizeof (*rv));
-                rv->type = OBJ_CONST;
-                rv->v.o_const.type = CONST_INT;
-                rv->v.o_const.v.c_int.v = 0;
+                // printf ("%d\n", fn->mod->body_len);
+                sf_parser_exec (nmod);
 
-                res = sf_ot_addobj (rv);
+                if (nmod->retv != NULL)
+                  {
+                    res = nmod->retv;
+                  }
+                else
+                  {
+                    obj_t *rv = sfmalloc (sizeof (*rv));
+                    rv->type = OBJ_CONST;
+                    rv->v.o_const.type = CONST_INT;
+                    rv->v.o_const.v.c_int.v = 0;
+
+                    res = sf_ot_addobj (rv);
+                  }
               }
+
+            /*
+             If return value is an argument (lvalue)
+             and if a return reference is not counted
+             then argument will lose it's object in the next step
+             (acts as rvalue).
+             This will return a free'd object if argument's value is not
+             referenced by other symbols.
+            */
+            if (res != NULL)
+              sf_ll_set_meta_refcount (res, res->meta.ref_count + 1);
           }
+          break;
 
-        /*
-         If return value is an argument (lvalue)
-         and if a return reference is not counted
-         then argument will lose it's object in the next step
-         (acts as rvalue).
-         This will return a free'd object if argument's value is not
-         referenced by other symbols.
-        */
-        if (res != NULL)
-          sf_ll_set_meta_refcount (res, res->meta.ref_count + 1);
-      }
-      break;
+        default:
+          e_printf ("Cannot call object of type %d\n", fref->type);
+          break;
+        }
 
-    default:
-      e_printf ("Cannot call object of type %d\n", fref->type);
-      break;
+      nmod->parent = NULL;
+      nmod->body = NULL;
+      nmod->body_len = 0;
+      nmod->retv = NULL;
+
+      sf_mod_free (nmod);
+
+      sf_ll_set_meta_refcount (name, name->meta.ref_count - 1);
+
+      // printf ("[%d]\n", res->meta.ref_count);
+
+      return res;
+    }
+  else
+    {
+      /**
+       * Currently we are treating brackets as a
+       * function call with no name.
+       * The arguments of this function are evaluated ideally.
+       * ! The first argument of arglist is returned.
+       * TODO: Convert this arglist to tuple and return the tuple (if argcount
+       * > 1).
+       */
+
+      llnode_t *res = NULL;
+      for (size_t i = 0; i < e->v.fun_call.arg_count; i++)
+        {
+          llnode_t *c = eval_expr (mod, &e->v.fun_call.args[i]);
+
+          /*
+            Instead of setting ref_count to this+1 and then
+            resetting it to this-1, I will just set ref_count
+            as ref_count only to check for rvalues (and destroy them).
+          */
+          if (!i)
+            res = c; // no self assignment as we are returning first index
+          else
+            sf_ll_set_meta_refcount (c, c->meta.ref_count); // self assignment
+        }
+
+      if (res == NULL)
+        {
+          obj_t *ro = sfmalloc (sizeof (*ro));
+          ro->type = OBJ_CONST;
+          ro->v.o_const.type = CONST_NONE;
+
+          res = sf_ot_addobj (ro);
+        }
+
+      return res;
     }
 
-  nmod->parent = NULL;
-  nmod->body = NULL;
-  nmod->body_len = 0;
-  nmod->retv = NULL;
-
-  sf_mod_free (nmod);
-
-  sf_ll_set_meta_refcount (name, name->meta.ref_count - 1);
-
-  // printf ("[%d]\n", res->meta.ref_count);
-
-  return res;
+  return NULL; // unreachable code
 }
 
 int
@@ -918,6 +1034,80 @@ end:
   return 0;
 }
 
+llnode_t *
+_sf_ev_arith (mod_t *m, expr_t *e)
+{
+  tree_t *ac = e->v.e_arith.tree;
+  int c = sf_tree_countNodes (ac);
+
+  tree_t **nodes = sfmalloc (c * sizeof (*nodes));
+  int nc = 0;
+  nodes[nc++] = ac;
+
+  while (nc > 0)
+    {
+      tree_t *last_node = nodes[--nc];
+
+      struct _sfa_treetok_s *nval = (struct _sfa_treetok_s *)last_node->val;
+
+      if (!nval->is_op)
+        {
+          nval->is_llnode = 1;
+          expr_t *ecpy = nval->v.val;
+
+          nval->node = eval_expr (m, ecpy);
+          sf_ll_set_meta_refcount (nval->node, nval->node->meta.ref_count + 1);
+        }
+
+      if (last_node->left)
+        nodes[nc++] = last_node->left;
+
+      if (last_node->right)
+        nodes[nc++] = last_node->right;
+    }
+
+  double res = sf_arith_eval_tree (ac);
+
+  obj_t *robj = sfmalloc (sizeof (*robj));
+  robj->type = OBJ_CONST;
+  robj->v.o_const.type = CONST_FLOAT;
+  robj->v.o_const.v.c_float.v = res;
+
+  llnode_t *retval = sf_ot_addobj (robj);
+
+  nc = 0;
+  nodes[nc++] = ac;
+
+  while (nc > 0)
+    {
+      tree_t *last_node = nodes[--nc];
+
+      struct _sfa_treetok_s *nval = (struct _sfa_treetok_s *)last_node->val;
+
+      if (!nval->is_op)
+        {
+          sf_ll_set_meta_refcount (nval->node, nval->node->meta.ref_count - 1);
+          nval->node = NULL;
+          nval->is_llnode = 0;
+        }
+
+      if (last_node->left)
+        nodes[nc++] = last_node->left;
+
+      if (last_node->right)
+        nodes[nc++] = last_node->right;
+    }
+
+  sffree (nodes);
+
+  /* obj_t *noneobj = sfmalloc (sizeof (*noneobj));
+  noneobj->type = OBJ_CONST;
+  noneobj->v.o_const.type = CONST_NONE;
+  llnode_t *retval = sf_ot_addobj (noneobj); */
+
+  return retval;
+}
+
 SF_API char *
 sf_parser_objRepr (mod_t *mod, obj_t *obj)
 {
@@ -986,6 +1176,10 @@ sf_parser_objRepr (mod_t *mod, obj_t *obj)
               res = sf_str_new_fromStr (
                   SFCPTR_TOSTR (obj->v.o_const.v.c_string.v));
             }
+            break;
+
+          case CONST_NONE:
+            res = sf_str_new_fromStr (SF_DTYPE_NONE_REPR);
             break;
 
           default:

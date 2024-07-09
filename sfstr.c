@@ -133,3 +133,9 @@ sf_str_endswith (sf_charptr s, const char *ss)
 
   return !strcmp (s + sl - ssl, ss);
 }
+
+SF_API void
+sf_str_free (sf_charptr *_str)
+{
+  sffree (*_str);
+}

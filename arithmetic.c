@@ -33,6 +33,7 @@ sf_arith_pft_to_tree (__sfapostfix_tree *t, int len)
 
       *ctk = (struct _sfa_treetok_s){
         .is_op = t[i].is_op,
+        .is_llnode = 0,
       };
 
       if (ctk->is_op)
@@ -178,26 +179,65 @@ sf_arith_eval_tree (tree_t *t)
     }
   else
     {
-      expr_t *v = c->v.val;
-      assert (v->type == EXPR_CONSTANT);
-
-      switch (v->v.e_const.type)
+      if (c->is_llnode)
         {
-        case CONST_INT:
-          return v->v.e_const.v.c_int.v;
-          break;
+          obj_t *v = (obj_t *)c->node->val;
+          assert (v->type == OBJ_CONST); // ? for now
 
-        case CONST_FLOAT:
-          return v->v.e_const.v.c_float.v;
-          break;
+          switch (v->v.o_const.type)
+            {
+            case CONST_INT:
+              return v->v.o_const.v.c_int.v;
+              break;
 
-        default:
-          e_printf (
-              "Unsupported operand of type '%d' in sf_arith_eval_tree()\n",
-              v->v.e_const.type);
-          break;
+            case CONST_FLOAT:
+              return v->v.o_const.v.c_float.v;
+              break;
+
+            default:
+              e_printf (
+                  "Unsupported operand of type '%d' in sf_arith_eval_tree()\n",
+                  v->v.o_const.type);
+              break;
+            }
+        }
+      else
+        {
+          expr_t *v = c->v.val;
+          assert (v->type == EXPR_CONSTANT);
+
+          switch (v->v.e_const.type)
+            {
+            case CONST_INT:
+              return v->v.e_const.v.c_int.v;
+              break;
+
+            case CONST_FLOAT:
+              return v->v.e_const.v.c_float.v;
+              break;
+
+            default:
+              e_printf (
+                  "Unsupported operand of type '%d' in sf_arith_eval_tree()\n",
+                  v->v.e_const.type);
+              break;
+            }
         }
     }
 
   return 0;
+}
+
+SF_API tree_t *
+sf_arith_tree_copyd (tree_t *t)
+{
+  tree_t *r = sf_tree_new (t->val, NULL, NULL);
+
+  if (t->left)
+    r->left = sf_arith_tree_copyd (t->left);
+
+  if (t->right)
+    r->right = sf_arith_tree_copyd (t->right);
+
+  return r;
 }

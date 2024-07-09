@@ -30,6 +30,8 @@ extern "C"
   SF_API int sf_str_startswith (sf_charptr _Str, const char *_SubStr);
   SF_API int sf_str_endswith (sf_charptr _Str, const char *_SubStr);
 
+  SF_API void sf_str_free (sf_charptr *_str);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "arithmetic.h"
 #include "ast.h"
 #include "header.h"
 #include "llist.h"
@@ -9,6 +10,7 @@
 #include "sfmod.h"
 #include "sfstr.h"
 #include "tokenizer.h"
+#include "tree.h"
 #include "trie.h"
 
 struct _parser_ret_s

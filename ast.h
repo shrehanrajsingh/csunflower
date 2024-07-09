@@ -57,6 +57,7 @@ enum // Used for both constant types for expr and obj_t
   CONST_FLOAT = 1,
   CONST_STRING = 2,
   CONST_BOOL = 3,
+  CONST_NONE = 4, // No struct for this type
 };
 
 enum

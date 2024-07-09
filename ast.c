@@ -1,4 +1,5 @@
 #include "ast.h"
+#include "parser.h"
 #include "sfarray.h"
 
 stmt_t _sf_stmt_vdgen (tok_t *_arr, size_t _idx, size_t *_jumper);
@@ -367,6 +368,7 @@ sf_ast_exprgen (tok_t *arr, size_t len)
                     goto end;
                   }
               }
+
             else if (c.v.t_ident.is_bool)
               {
                 res.type = EXPR_CONSTANT;
@@ -374,6 +376,13 @@ sf_ast_exprgen (tok_t *arr, size_t len)
                 res.v.e_const.v.c_bool.v
                     = sf_str_eq_rCp (c.v.t_ident.v, SF_BOOL_TRUE_REPR);
               }
+
+            else if (sf_str_eq_rCp (c.v.t_ident.v, SF_DTYPE_NONE_REPR))
+              {
+                res.type = EXPR_CONSTANT;
+                res.v.e_const.type = CONST_NONE;
+              }
+
             else
               {
                 res.type = EXPR_VAR;
@@ -643,80 +652,88 @@ sf_ast_exprgen (tok_t *arr, size_t len)
               {
                 expr_t pres_res = res;
 
-                if (res.type != -1)
+                res.type = EXPR_FUN_CALL;
+                size_t last_idx = i + 1;
+                size_t end_idx = i;
+                int gb = 0;
+
+                expr_t *args = NULL;
+                size_t argc = 0;
+
+                for (size_t j = last_idx; j < len; j++)
                   {
-                    res.type = EXPR_FUN_CALL;
-                    size_t last_idx = i + 1;
-                    size_t end_idx = i;
-                    int gb = 0;
+                    tok_t d = arr[j];
 
-                    expr_t *args = NULL;
-                    size_t argc = 0;
-
-                    for (size_t j = last_idx; j < len; j++)
+                    if (d.type == TOK_OPERATOR)
                       {
-                        tok_t d = arr[j];
+                        sf_charptr p = d.v.t_op.v;
 
-                        if (d.type == TOK_OPERATOR)
+                        if (sf_str_eq_rCp (p, ")") && !gb)
                           {
-                            sf_charptr p = d.v.t_op.v;
-
-                            if (sf_str_eq_rCp (p, ")") && !gb)
-                              {
-                                if (j != last_idx)
-                                  {
-                                    args = sfrealloc (
-                                        args, (argc + 1) * sizeof (*args));
-
-                                    args[argc++] = sf_ast_exprgen (
-                                        arr + last_idx, j - last_idx);
-                                  }
-
-                                end_idx = j;
-                                break;
-                              }
-
-                            if (sf_str_eq_rCp (p, ",") && !gb)
+                            if (j != last_idx)
                               {
                                 args = sfrealloc (args,
                                                   (argc + 1) * sizeof (*args));
 
                                 args[argc++] = sf_ast_exprgen (arr + last_idx,
                                                                j - last_idx);
-
-                                last_idx = j + 1;
-                                continue;
                               }
 
-                            if (sf_str_inStr ("([{", p))
-                              gb++;
-
-                            else if (sf_str_inStr (")]}", p))
-                              gb--;
+                            end_idx = j;
+                            break;
                           }
+
+                        if (sf_str_eq_rCp (p, ",") && !gb)
+                          {
+                            args = sfrealloc (args,
+                                              (argc + 1) * sizeof (*args));
+
+                            args[argc++] = sf_ast_exprgen (arr + last_idx,
+                                                           j - last_idx);
+
+                            last_idx = j + 1;
+                            continue;
+                          }
+
+                        if (sf_str_inStr ("([{", p))
+                          gb++;
+
+                        else if (sf_str_inStr (")]}", p))
+                          gb--;
                       }
-
-                    assert (end_idx != i);
-
-                    res.v.fun_call.arg_count = argc;
-                    res.v.fun_call.args = args;
-                    res.v.fun_call.name = sfmalloc (sizeof (expr_t));
-                    *res.v.fun_call.name = pres_res;
-
-                    i = end_idx - 1;
-                    goto l_end;
                   }
+
+                assert (end_idx != i);
+
+                res.v.fun_call.arg_count = argc;
+                res.v.fun_call.args = args;
+                res.v.fun_call.name = sfmalloc (sizeof (expr_t));
+                *res.v.fun_call.name = pres_res;
+
+                i = end_idx - 1;
+                goto l_end;
               }
 
             else if (sf_str_inStr ("+-*/%", p))
               {
-                __sfapostfix_tree *atree = sfmalloc (len * sizeof (*atree));
+                __sfapostfix_tree *atree = sfmalloc (
+                    (len
+                     + 1 /* +1 for next-breakpoint condition (see first if statement below) */)
+                    * sizeof (*atree));
                 size_t ac = 0;
 
                 atree[ac] = (__sfapostfix_tree){
                   .is_op = 0,
                   .v.val = sfmalloc (sizeof (expr_t)),
                 };
+
+                if (res.type == -1
+                    && (sf_str_eq_rCp (p, "-") || sf_str_eq_rCp (p, "+")))
+                  {
+                    res.type = EXPR_CONSTANT;
+                    res.v.e_const.type = CONST_INT;
+                    res.v.e_const.v.c_int.v = 0;
+                  }
 
                 *atree[ac].v.val = res;
                 ac++;
@@ -1448,6 +1465,22 @@ sf_ast_freeObj (obj_t **obj)
       }
       break;
 
+    case OBJ_CONST:
+      {
+        switch (p->v.o_const.type)
+          {
+          case CONST_STRING:
+            {
+              sf_str_free (&p->v.o_const.v.c_string.v);
+            }
+            break;
+
+          default:
+            break;
+          }
+      }
+      break;
+
     default:
       break;
     }
@@ -1462,6 +1495,14 @@ __sfexprprintarith (void *arg)
 
   if (cur->is_op)
     printf ("op: %s\n", cur->v.op);
+
+  else if (cur->is_llnode)
+    {
+      char *r = sf_parser_objRepr (NULL, (obj_t *)cur->node->val);
+      printf ("llnode: %s\n", r);
+
+      sffree (r);
+    }
 
   else
     sf_ast_exprprint (*cur->v.val);
@@ -1479,14 +1520,21 @@ sf_ast_exprprint (expr_t e)
           case CONST_BOOL:
             printf ("const_bool %d\n", e.v.e_const.v.c_bool.v);
             break;
+
           case CONST_FLOAT:
             printf ("const_float %f\n", e.v.e_const.v.c_float.v);
             break;
+
           case CONST_INT:
             printf ("const_int %d\n", e.v.e_const.v.c_int.v);
             break;
+
           case CONST_STRING:
             printf ("const_string %s\n", e.v.e_const.v.c_string.v);
+            break;
+
+          case CONST_NONE:
+            printf ("const_none\n");
             break;
 
           default:
