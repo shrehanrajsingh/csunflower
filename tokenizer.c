@@ -466,8 +466,8 @@ int
 _sf_identifierisreserved (const char *id)
 {
   const char *residfs[] = {
-    "for",  "if", "else", "while", "import", "to",
-    "step", "in", "type", "fun",   NULL,
+    "for", "if",   "else", "while", "import",   "to", "step",
+    "in",  "type", "fun",  "class", "inherits", NULL,
   };
 
   size_t i = 0;

@@ -153,6 +153,93 @@ sf_ast_exprgen (tok_t *arr, size_t len)
   size_t i = 0;
   int gb = 0;
 
+  /*
+    Precedence in sunflower follows:
+    * `in` clause
+    * `to step type` clause
+    * arithmetic operators
+  */
+
+  /* check for `in` clause */
+  while (i < len)
+    {
+      tok_t c = arr[i];
+
+      if (c.type == TOK_OPERATOR)
+        {
+          sf_charptr p = c.v.t_op.v;
+
+          if (sf_str_inStr (")]}", p))
+            gb--;
+        }
+
+      if (gb)
+        goto l0;
+
+      if (c.type == TOK_OPERATOR)
+        {
+          sf_charptr p = c.v.t_op.v;
+
+          if (sf_str_inStr ("([{", p))
+            gb++;
+        }
+
+      if (c.type == TOK_IDENTIFIER && c.v.t_ident.is_reserved
+          && sf_str_eq_rCp (c.v.t_ident.v, "in") && !gb)
+        {
+          res = sf_ast_exprgen (arr, i);
+
+          i--; // to counter i++ at l_end
+          goto l_end;
+        }
+
+    l0:
+      i++;
+    }
+
+  i = 0;
+  gb = 0;
+
+  /* check for `to step type` clause */
+  while (i < len)
+    {
+      tok_t c = arr[i];
+
+      if (c.type == TOK_OPERATOR)
+        {
+          sf_charptr p = c.v.t_op.v;
+
+          if (sf_str_inStr (")]}", p))
+            gb--;
+        }
+
+      if (gb)
+        goto l1;
+
+      if (c.type == TOK_OPERATOR)
+        {
+          sf_charptr p = c.v.t_op.v;
+
+          if (sf_str_inStr ("([{", p))
+            gb++;
+        }
+
+      if (c.type == TOK_IDENTIFIER && c.v.t_ident.is_reserved
+          && sf_str_eq_rCp (c.v.t_ident.v, "to") && !gb)
+        {
+          res = sf_ast_exprgen (arr, i);
+
+          i--; // to counter i++ at l_end
+          goto l_end;
+        }
+
+    l1:
+      i++;
+    }
+
+  i = 0;
+  gb = 0;
+
   while (i < len)
     {
       tok_t c = arr[i];

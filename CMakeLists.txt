@@ -19,6 +19,7 @@ add_library(sunflower
     sfarray.h sfarray.c
     arithmetic.h arithmetic.c
     tree.h tree.c
+    sfclass.h sfclass.c
     header.h
 )
 
