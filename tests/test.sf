@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 class Test
 
     fun _init()
@@ -7,3 +8,11 @@ class Test
         put("Destroying\n")
 
 obj = Test()
+=======
+fun test(a)
+    put(a)
+    put('\n')
+    test(a + 1)
+
+test(1)
+>>>>>>> 1525d05eeac1eecaacebf212dfacf4b5b1e3c46e

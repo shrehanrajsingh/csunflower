@@ -399,11 +399,12 @@ test6 ()
 int
 main (int argc, char const *argv[])
 {
-  SF_DEBUG_DUMP = fopen ("../../tests/dgb.sf", "w");
+  // SF_DEBUG_DUMP = fopen ("../../tests/dgb.sf", "w");
 
   sf_ot_init ();
   sf_fun_init ();
   sf_array_init ();
+  sf_dbg_fledump_init ();
 
   // while (1)
 
@@ -413,7 +414,8 @@ main (int argc, char const *argv[])
   // Code 6: tree test
   TEST (5);
 
-  fclose (SF_DEBUG_DUMP);
+  // fclose (SF_DEBUG_DUMP);
+  sf_dbg_dumpclose ();
 
   return !printf ("Program ended.\n");
 }

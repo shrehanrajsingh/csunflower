@@ -19,12 +19,27 @@ typedef char *sf_charptr;
 typedef int sf_int;
 typedef double sf_float;
 
-FILE *SF_DEBUG_DUMP;
+// FILE *SF_DEBUG_DUMP;
 
-#define e_printf(...) fprintf (SF_DEBUG_DUMP, __VA_ARGS__)
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+  SF_API FILE *sf_dbg_get_filedump ();
+
+#ifdef __cplusplus
+}
+#endif
+
+#define e_printf(...) fprintf (sf_dbg_get_filedump (), __VA_ARGS__)
 #define here printf ("%s (%s): %d\n", __FILE__, __FUNCTION__, __LINE__);
 
 // This is how they are to be written in code
 #define SF_BOOL_TRUE_REPR "true"
 #define SF_BOOL_FALSE_REPR "false"
 #define SF_DTYPE_NONE_REPR "none"
+
+#ifndef max
+#define max(a, b) (((a) > (b)) ? (a) : (b))
+#endif

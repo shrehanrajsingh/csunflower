@@ -5,7 +5,7 @@ llnode_t *_sf_fcall (mod_t *, expr_t *);
 llnode_t *_sf_ev_arith (mod_t *, expr_t *);
 
 void _sf_exec_block_for (mod_t *, int);
-void _sf_exec_block_if (mod_t *, int *);
+void _sf_exec_block_if (mod_t *, size_t *);
 
 int _sf_obj_cmp (mod_t *, obj_t *, obj_t *);
 int _sf_obj_isfalse (mod_t *, obj_t *);
@@ -659,7 +659,7 @@ end:
 }
 
 void
-_sf_exec_block_if (mod_t *mod, int *ip)
+_sf_exec_block_if (mod_t *mod, size_t *ip)
 {
   int i = *ip;
   stmt_t *t = &mod->body[i];

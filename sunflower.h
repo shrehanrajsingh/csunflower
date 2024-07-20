@@ -13,3 +13,16 @@
 #include "tokenizer.h"
 #include "tree.h"
 #include "trie.h"
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+  SF_API void sf_dbg_fledump_init ();
+  SF_API FILE *sf_dbg_get_filedump ();
+  SF_API void sf_dbg_dumpclose ();
+
+#ifdef __cplusplus
+}
+#endif
