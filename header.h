@@ -21,6 +21,8 @@ typedef double sf_float;
 
 // FILE *SF_DEBUG_DUMP;
 
+#define SF_DISABLE_THIS
+
 #ifdef __cplusplus
 extern "C"
 {

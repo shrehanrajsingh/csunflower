@@ -9,6 +9,37 @@ sf_str_new_empty (void)
   return r;
 }
 
+SF_API sf_charptr
+sf_str_new_fromSize (size_t s)
+{
+  sf_charptr r = sfmalloc (s * sizeof (char));
+  *r = '\0';
+
+  return r;
+}
+
+SF_API void
+sf_str_insert (sf_charptr *t, int idx, const char src)
+{
+  sf_charptr ref = *t;
+  char p = *(ref + idx);
+  ref[idx] = src;
+
+  do
+    {
+      char temp = ref[idx + 1];
+      ref[++idx] = p;
+      p = temp;
+    }
+  while (ref[idx] != '\0');
+}
+
+SF_API void
+sf_str_resize (sf_charptr *targ, size_t size)
+{
+  *targ = sfrealloc (*targ, size * sizeof (char));
+}
+
 SF_API void
 sf_str_push (sf_charptr *t, const char *s)
 {

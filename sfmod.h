@@ -33,6 +33,12 @@ struct _mod_s
 
   llnode_t *retv; // return value of the mod (return value of a function)
   struct _mod_s *parent; // parent mod
+
+  union
+  {
+    class_t *cref; // if type == MOD_TYPE_CLASS
+
+  } meta;
 };
 
 typedef struct _mod_s mod_t;

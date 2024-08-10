@@ -7,6 +7,7 @@
 #include "objtable.h"
 #include "parser.h"
 #include "sfarray.h"
+#include "sfclass.h"
 #include "sfmem.h"
 #include "sfmod.h"
 #include "sfstr.h"

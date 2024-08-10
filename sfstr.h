@@ -14,9 +14,16 @@ extern "C"
 
   SF_API sf_charptr sf_str_new_empty (void);
   SF_API sf_charptr sf_str_new_fromStr (const char *_Source);
+  SF_API sf_charptr sf_str_new_fromSize (size_t);
 
+  /*
+    push and pushchr are unoptimized for strings allocated with size
+  */
   SF_API void sf_str_push (sf_charptr *_Target, const char *_Source);
   SF_API void sf_str_pushchr (sf_charptr *_Target, const char _Source);
+  SF_API void sf_str_insert (sf_charptr *_Target, int _Index,
+                             const char _Source);
+  SF_API void sf_str_resize (sf_charptr *_Target, size_t _Size);
 
   SF_API int sf_str_eq (sf_charptr _L1, sf_charptr _L2);
   SF_API int sf_str_eq_rCp (sf_charptr _L1, const char *_L2);

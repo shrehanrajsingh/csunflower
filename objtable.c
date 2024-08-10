@@ -11,7 +11,16 @@ sf_ot_init (void)
 SF_API llnode_t *
 sf_ot_addobj (obj_t *obj)
 {
-  return sf_ll_add_next_r (SFOBJ_MEM, (void *)obj);
+  // TEST
+  if (obj->meta.mem_ref == NULL)
+    {
+      llnode_t *t = sf_ll_add_next_r (SFOBJ_MEM, (void *)obj);
+      obj->meta.mem_ref = t;
+
+      return t;
+    }
+
+  return obj->meta.mem_ref;
 }
 
 SF_API void

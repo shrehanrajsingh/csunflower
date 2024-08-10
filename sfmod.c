@@ -1,4 +1,5 @@
 #include "sfmod.h"
+#include "parser.h"
 
 SF_API mod_t *
 sf_mod_new (int type, mod_t *parent)
@@ -10,6 +11,7 @@ sf_mod_new (int type, mod_t *parent)
   m->parent = parent;
   m->retv = NULL;
   m->vtable = sf_trie_new ();
+  m->meta.cref = NULL;
 
   return m;
 }
@@ -24,6 +26,11 @@ sf_mod_addVar (mod_t *mod, char *name, llnode_t *ref)
       // here;
       sf_ll_set_meta_refcount (l, l->meta.ref_count - 1);
     }
+
+#if !defined(SF_DISABLE_THIS)
+  obj_t *v = (obj_t *)ref->val;
+  v->meta.last_kwtr = _kwtr_get_back ();
+#endif
 
   sf_trie_add (mod->vtable, name, (void *)ref);
   sf_ll_set_meta_refcount (ref, ref->meta.ref_count + 1);
@@ -65,8 +72,7 @@ sf_mod_free (mod_t *mod)
       sffree (allkeys[i]);
     }
 
-  if (allkeys != NULL)
-    sffree (allkeys);
+  sffree (allkeys);
 
   if (mod->retv != NULL)
     sf_ll_set_meta_refcount (mod->retv, mod->retv->meta.ref_count - 1);

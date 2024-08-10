@@ -199,12 +199,20 @@ put_fun_rt (mod_t *mod)
 
   sffree (p);
 
-  obj_t *r = sfmalloc (sizeof (*r));
-  r->type = OBJ_CONST;
+  obj_t *r = sf_ast_objnew (OBJ_CONST);
   r->v.o_const.type = CONST_INT;
   r->v.o_const.v.c_int.v = c;
 
   return sf_ot_addobj (r);
+}
+
+llnode_t *
+putln_fun_rt (mod_t *mod)
+{
+  llnode_t *r = put_fun_rt (mod);
+  putchar ('\n');
+
+  return r;
 }
 
 llnode_t *
@@ -225,8 +233,7 @@ input_fun_rt (mod_t *mod)
       sf_str_pushchr (&inp, c);
     }
 
-  obj_t *r = sfmalloc (sizeof (*r));
-  r->type = OBJ_CONST;
+  obj_t *r = sf_ast_objnew (OBJ_CONST);
   r->v.o_const.type = CONST_STRING;
   r->v.o_const.v.c_string.v = inp;
 
@@ -238,8 +245,7 @@ ctr_fun_rt (mod_t *mod)
 {
   static int c = 0;
 
-  obj_t *r = sfmalloc (sizeof (*r));
-  r->type = OBJ_CONST;
+  obj_t *r = sf_ast_objnew (OBJ_CONST);
   r->v.o_const.type = CONST_INT;
   r->v.o_const.v.c_int.v = c++;
 
@@ -264,7 +270,7 @@ test5 ()
 
   {
     mod_t *put_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
-    obj_t *arg_obj = sfmalloc (sizeof (obj_t));
+    obj_t *arg_obj = sf_ast_objnew (OBJ_CONST);
 
     arg_obj->type = OBJ_CONST;
     arg_obj->v.o_const.type = CONST_STRING;
@@ -278,7 +284,7 @@ test5 ()
 
     fun_t *pf = sf_fun_add (put_fun);
 
-    obj_t *ar_obj = sfmalloc (sizeof (obj_t));
+    obj_t *ar_obj = sf_ast_objnew (OBJ_FUN);
     ar_obj->type = OBJ_FUN;
     ar_obj->v.o_fun.f = pf;
 
@@ -288,13 +294,39 @@ test5 ()
   /********************************************* */
 
   /********************************************* */
+  /* putln(arg) function */
+
+  {
+    mod_t *putln_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+    obj_t *arg_obj = sf_ast_objnew (OBJ_CONST);
+
+    arg_obj->v.o_const.type = CONST_STRING;
+    arg_obj->v.o_const.v.c_string.v = sf_str_new_fromStr ("\n");
+
+    sf_mod_addVar (putln_mod, "arg", sf_ot_addobj (arg_obj));
+
+    fun_t *putln_fun
+        = sf_fun_new ("putln", SF_FUN_NATIVE, putln_mod, putln_fun_rt);
+
+    sf_fun_addarg (putln_fun, "arg");
+
+    fun_t *pf = sf_fun_add (putln_fun);
+
+    obj_t *plr_obj = sf_ast_objnew (OBJ_FUN);
+    plr_obj->v.o_fun.f = pf;
+
+    sf_mod_addVar (m, "putln", sf_ot_addobj (plr_obj));
+  }
+
+  /********************************************* */
+
+  /********************************************* */
   /* input(arg) function */
 
   {
     mod_t *inp_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
-    obj_t *msg_obj = sfmalloc (sizeof (obj_t));
+    obj_t *msg_obj = sf_ast_objnew (OBJ_CONST);
 
-    msg_obj->type = OBJ_CONST;
     msg_obj->v.o_const.type = CONST_STRING;
     msg_obj->v.o_const.v.c_string.v = sf_str_new_fromStr ("");
 
@@ -307,8 +339,7 @@ test5 ()
 
     fun_t *ifp = sf_fun_add (inp_fun);
 
-    obj_t *ir_obj = sfmalloc (sizeof (obj_t));
-    ir_obj->type = OBJ_FUN;
+    obj_t *ir_obj = sf_ast_objnew (OBJ_FUN);
     ir_obj->v.o_fun.f = ifp;
 
     sf_mod_addVar (m, "input", sf_ot_addobj (ir_obj));
@@ -326,7 +357,7 @@ test5 ()
 
     fun_t *ctrp = sf_fun_add (ctr_fun);
 
-    obj_t *ctr_obj = sfmalloc (sizeof (obj_t));
+    obj_t *ctr_obj = sf_ast_objnew (OBJ_FUN);
     ctr_obj->type = OBJ_FUN;
     ctr_obj->v.o_fun.f = ctrp;
 
@@ -396,6 +427,24 @@ test6 ()
   sf_tree_free (t);
 }
 
+void
+test7 ()
+{
+  sf_charptr p = sf_str_new_fromSize (10);
+
+  for (size_t i = 0; i < 10; i++)
+    {
+      p[i] = i + '0';
+    }
+
+  p[19] = '\0';
+
+  printf ("%s\n", p);
+
+  sf_str_insert (&p, 3, 'P');
+  printf ("%s\n", p);
+}
+
 int
 main (int argc, char const *argv[])
 {
@@ -405,9 +454,12 @@ main (int argc, char const *argv[])
   sf_fun_init ();
   sf_array_init ();
   sf_dbg_fledump_init ();
+  sf_class_init ();
+  sf_parser_init ();
 
   // while (1)
 
+  // Code 2: Token print
   // Code 3: dump ast tree
   // Code 4: linked list test
   // Code 5: parser

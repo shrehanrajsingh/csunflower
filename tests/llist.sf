@@ -1,0 +1,16 @@
+class Node
+    v = none
+    next = none
+
+    fun _init (a)
+        this.v = a
+
+    fun printv ()
+        putln (this.v)
+
+obj = Node (1)
+putln(obj.v)
+
+obj.next = Node (2)
+obj.next.next = Node (3)
+obj.next.next.next = Node (4)

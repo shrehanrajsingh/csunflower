@@ -3,9 +3,11 @@
 #include "arithmetic.h"
 #include "function.h"
 #include "header.h"
+#include "sfclass.h"
 #include "sfmem.h"
 #include "tokenizer.h"
 #include "tree.h"
+#include "llist.h"
 
 /**
  * Three divisions of ASTs
@@ -30,6 +32,8 @@ enum
   STMT_ELSE_BLOCK = 6,
   STMT_FOR_BLOCK = 7,
   STMT_OPEQ = 8, /* +=, -=, *=, /= */
+  STMT_CLASS_DECL = 9,
+  STMT_WHILE_BLOCK = 10,
 };
 
 enum
@@ -49,6 +53,8 @@ enum
   EXPR_ARRAY = 12,
   EXPR_IDX_ACCESS = 13,
   EXPR_ARITHMETIC = 14,
+  EXPR_MEM_ACCESS = 15,
+  EXPR_THIS = 16,
 };
 
 enum // Used for both constant types for expr and obj_t
@@ -65,6 +71,8 @@ enum
   OBJ_CONST = 0,
   OBJ_FUN = 1,
   OBJ_ARRAY = 2,
+  OBJ_CLASS = 3,
+  OBJ_CLASSOBJ = 4,
 };
 
 struct _expr_s;
@@ -119,7 +127,7 @@ struct _stmt_s
       struct _stmt_s *body;
       size_t body_count;
 
-    } blk_if, blk_elseif, blk_for;
+    } blk_if, blk_elseif, blk_for, blk_while;
 
     struct
     {
@@ -138,9 +146,41 @@ struct _stmt_s
 
     } opeq_decl;
 
+    /*
+        Classes in sunflower:
+
+        class <Identifier_Named>(<Inheritance list>)
+              |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~|
+              (Caught as a function call expression)
+
+            <Body...>
+            var1 = none
+            var2 = none
+            <...>
+
+            <Magic methods>
+            fun _init()
+              this.var1 = "var1"
+              this.var2 = [1, 4, 3]
+
+            fun _kill()
+              put("Killing\n")
+
+        obj = <Class_name>()
+    */
+    struct
+    {
+
+      struct _expr_s *name;
+      struct _stmt_s *body;
+      size_t body_count;
+
+    } class_decl;
+
   } v;
 };
 
+struct _obj_s;
 struct _expr_s
 {
   int type;
@@ -249,6 +289,23 @@ struct _expr_s
 
     } e_arith;
 
+    /*
+      class Test
+        a = 10
+        b = 20
+
+
+      x = Test.(a) ----> val
+          ^^^^
+          parent
+    */
+    struct
+    {
+      struct _expr_s *parent;
+      struct _expr_s *val;
+
+    } mem_access;
+
   } v;
 };
 
@@ -302,17 +359,36 @@ struct _obj_s
 
     } o_array;
 
+    struct
+    {
+      class_t *val;
+
+    } o_class, o_cobj;
+
   } v;
+
+  struct
+  {
+    struct _obj_s **passargs;
+    size_t pa_size;
+
+    llnode_t *mem_ref;
+
+  } meta;
 };
 
 typedef struct _stmt_s stmt_t;
 typedef struct _expr_s expr_t;
 typedef struct _obj_s obj_t;
 
+#define OBJ_IS_NUMBER(X) ((X)->type == OBJ_CONST && ((X)->v.o_const.type == CONST_INT || (X)->v.o_const.type == CONST_FLOAT))
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+  SF_API obj_t *sf_ast_objnew (int _Type);
 
   SF_API stmt_t *sf_ast_stmtgen (tok_t *_Arr, size_t *_SizePtr);
   SF_API expr_t sf_ast_exprgen (tok_t *_Arr, size_t _ArrLen);
