@@ -28,7 +28,9 @@ extern "C"
 {
 #endif
 
+#if !defined (SF_NODEBUG)
   SF_API FILE *sf_dbg_get_filedump ();
+#endif
 
 #ifdef __cplusplus
 }
