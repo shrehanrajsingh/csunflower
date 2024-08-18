@@ -21,9 +21,11 @@ extern "C"
 {
 #endif
 
+#if !defined (SF_NODEBUG)
   SF_API void sf_dbg_fledump_init ();
   SF_API FILE *sf_dbg_get_filedump ();
   SF_API void sf_dbg_dumpclose ();
+#endif
 
 #ifdef __cplusplus
 }

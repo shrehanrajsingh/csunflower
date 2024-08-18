@@ -34,7 +34,11 @@ extern "C"
 }
 #endif
 
+#if !defined(SF_NODEBUG)
 #define e_printf(...) fprintf (sf_dbg_get_filedump (), __VA_ARGS__)
+#else
+#define e_printf(...)
+#endif
 #define here printf ("%s (%s): %d\n", __FILE__, __FUNCTION__, __LINE__);
 
 // This is how they are to be written in code

@@ -496,7 +496,11 @@ main (int argc, char const *argv[])
   sf_ot_init ();
   sf_fun_init ();
   sf_array_init ();
+
+#if !defined(SF_NODEBUG)
   sf_dbg_fledump_init ();
+#endif
+
   sf_class_init ();
   sf_parser_init ();
   sf_nm_init ();

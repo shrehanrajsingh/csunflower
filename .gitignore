@@ -3,3 +3,4 @@ build/
 infrun.py
 .DS_STORE
 tests/dbg.sf
+README.md.draft
