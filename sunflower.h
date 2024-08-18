@@ -14,6 +14,7 @@
 #include "tokenizer.h"
 #include "tree.h"
 #include "trie.h"
+#include "nativemethods.h"
 
 #ifdef __cplusplus
 extern "C"

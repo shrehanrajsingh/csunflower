@@ -252,6 +252,30 @@ ctr_fun_rt (mod_t *mod)
   return sf_ot_addobj (r);
 }
 
+llnode_t *
+nativemethod_type_str_name_operator_plus (mod_t *mod)
+{
+  obj_t *self = (obj_t *)sf_mod_getVar (mod, "self")->val;
+  obj_t *other = (obj_t *)sf_mod_getVar (mod, "other")->val;
+
+  char *p1, *p2;
+  p1 = sf_parser_objRepr (mod, self);
+  p2 = sf_parser_objRepr (mod, other);
+
+  sf_charptr res = sf_str_new_empty ();
+  sf_str_push (&res, p1);
+  sf_str_push (&res, p2);
+
+  obj_t *o = sf_ast_objnew (OBJ_CONST);
+  o->v.o_const.type = CONST_STRING;
+  o->v.o_const.v.c_string.v = res;
+
+  sffree (p1);
+  sffree (p2);
+
+  return sf_ot_addobj (o);
+}
+
 void
 test5 ()
 {
@@ -366,6 +390,25 @@ test5 ()
 
   /********************************************* */
 
+  /********************************************* */
+  /* ''.operator+() function */
+
+  {
+    mod_t *sop_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+
+    fun_t *sop_fun = sf_fun_new (SF_OP_OVRLD_PLUS, SF_FUN_NATIVE, sop_mod,
+                                 nativemethod_type_str_name_operator_plus);
+
+    sf_fun_addarg (sop_fun, "self");
+    sf_fun_addarg (sop_fun, "other");
+
+    fun_t *sopf = sf_fun_add (sop_fun);
+
+    sf_nm_add (SF_OP_OVRLD_PLUS, CONST_STRING, sopf);
+  }
+
+  /********************************************* */
+
   // while (1)
   {
     sf_parser_exec (m);
@@ -389,7 +432,7 @@ test5 ()
 void
 t6btr (void *arg)
 {
-  printf ("%s\n", arg);
+  printf ("%s\n", (char *)arg);
 }
 
 void
@@ -456,6 +499,7 @@ main (int argc, char const *argv[])
   sf_dbg_fledump_init ();
   sf_class_init ();
   sf_parser_init ();
+  sf_nm_init ();
 
   // while (1)
 

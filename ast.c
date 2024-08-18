@@ -1098,14 +1098,15 @@ sf_ast_exprgen (tok_t *arr, size_t len)
                 res.type = EXPR_ARITHMETIC;
                 res.v.e_arith.tree = sf_arith_pft_to_tree (atree, ac);
 
-                if (all_constants)
-                  {
-                    double arith_res = sf_arith_eval_tree (res.v.e_arith.tree);
-
-                    res.type = EXPR_CONSTANT;
-                    res.v.e_const.type = CONST_FLOAT;
-                    res.v.e_const.v.c_float.v = arith_res;
-                  }
+                // if (all_constants)
+                //   {
+                //     double arith_res
+                //         = sf_arith_eval_tree (res.v.e_arith.tree).v.dres.v;
+                //
+                //     res.type = EXPR_CONSTANT;
+                //     res.v.e_const.type = CONST_FLOAT;
+                //     res.v.e_const.v.c_float.v = arith_res;
+                //   }
 
                 sffree (atree);
                 goto end;
@@ -1893,6 +1894,13 @@ sf_ast_freeObj (obj_t **obj)
     case OBJ_CLASS:
       {
         sf_class_free (p->v.o_class.val);
+      }
+      break;
+
+    case OBJ_CLASSOBJ:
+      {
+        // TODO Call destructor
+        sf_class_free (p->v.o_cobj.val);
       }
       break;
 

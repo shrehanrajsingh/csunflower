@@ -21,5 +21,7 @@ add_library(sunflower
     tree.h tree.c
     sfclass.h sfclass.c
     header.h
+        nativemethods.c
+        nativemethods.h
 )
 

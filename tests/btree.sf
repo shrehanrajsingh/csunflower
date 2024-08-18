@@ -1,0 +1,26 @@
+class tree
+    left = none
+    right = none
+    val = 0
+
+    fun _init (self, v)
+        self.val = v
+
+    fun print (self)
+        putln (self.val)
+
+        if self.left
+            self.left.print()
+
+        if self.right
+            self.right.print ()
+
+a = tree (1)
+a.left = tree (2)
+a.left.left = tree (3)
+a.left.right = tree (4)
+a.right = tree (5)
+a.right.left = tree (6)
+a.right.right = tree (7)
+
+a.print ()

@@ -699,11 +699,27 @@ eval_expr (mod_t *mod, expr_t *e)
             obj_t *rv = (obj_t *)r->val;
 
             if (rv->meta.passargs != NULL)
-              rv->meta.passargs = sfrealloc (
+              /*rv->meta.passargs = sfrealloc (
                   rv->meta.passargs,
-                  (rv->meta.pa_size + 1) * sizeof (*rv->meta.passargs));
-            else
-              rv->meta.passargs = sfmalloc (sizeof (*rv->meta.passargs));
+                  (rv->meta.pa_size + 1) * sizeof (*rv->meta.passargs));*/
+              {
+                for (size_t i = 0; i < rv->meta.pa_size; i++)
+                  {
+                    obj_t *cr = rv->meta.passargs[i];
+
+                    if (cr->meta.mem_ref != NULL)
+                      {
+                        sf_ll_set_meta_refcount (
+                            cr->meta.mem_ref,
+                            cr->meta.mem_ref->meta.ref_count - 1);
+                      }
+                  }
+
+                sffree (rv->meta.passargs);
+                rv->meta.pa_size = 0;
+              }
+            // else
+            rv->meta.passargs = sfmalloc (sizeof (*rv->meta.passargs));
 
             rv->meta.passargs[rv->meta.pa_size++] = par_obj;
             sf_ll_set_meta_refcount (par_ll, par_ll->meta.ref_count + 1);
@@ -775,13 +791,13 @@ _sf_exec_block_for (mod_t *mod, int i)
           {
           case OBJ_ARRAY:
             {
-              array_t *rt = robj->v.o_array.v;
+              const array_t *rt = robj->v.o_array.v;
 
               for (size_t i = 0; i < rt->len; i++)
                 {
                   if (lv->type == EXPR_VAR)
                     {
-                      sf_charptr vname = lv->v.var.name;
+                      const sf_charptr vname = lv->v.var.name;
 
                       sf_mod_addVar (mod, SFCPTR_TOSTR (vname), rt->vals[i]);
                     }
@@ -801,6 +817,54 @@ _sf_exec_block_for (mod_t *mod, int i)
             }
             break;
 
+          case OBJ_CONST:
+            {
+              switch (robj->v.o_const.type)
+                {
+                case CONST_STRING:
+                  {
+                    const char *vl
+                        = SFCPTR_TOSTR (robj->v.o_const.v.c_string.v);
+                    const size_t d = strlen (vl);
+
+                    for (size_t i = 0; i < d; i++)
+                      {
+                        const char c = vl[i];
+
+                        if (lv->type == EXPR_VAR)
+                          {
+                            const sf_charptr vname = lv->v.var.name;
+
+                            obj_t *oref = sf_ast_objnew (OBJ_CONST);
+                            oref->v.o_const.type = CONST_STRING;
+                            oref->v.o_const.v.c_string.v = sf_str_new_empty ();
+                            sf_str_pushchr (&oref->v.o_const.v.c_string.v, c);
+
+                            sf_mod_addVar (mod, SFCPTR_TOSTR (vname),
+                                           sf_ot_addobj (oref));
+                          }
+                        else
+                          {
+                            // TODO
+                            // ? other types of expressions
+                            /*
+                              for i, j = 2 in [1, [1, 3], [1]]
+                                     ^^^^^ -> VAR_DECL
+                            */
+                          }
+
+                        sf_parser_exec (mod);
+                        // TODO: check for signals like continue, break
+                      }
+                  }
+                  break;
+
+                default:
+                  break;
+                }
+            }
+            break;
+
           default:
             break;
           }
@@ -810,6 +874,12 @@ _sf_exec_block_for (mod_t *mod, int i)
       break;
 
     default:
+      {
+        /**
+         * for (i = 0, i < 10, i = i + 1)
+         *    <body>
+         */
+      }
       break;
     }
 
@@ -1125,8 +1195,7 @@ _sf_fcall (mod_t *mod, expr_t *e)
                 else
                   {
                     obj_t *rv = sf_ast_objnew (OBJ_CONST);
-                    rv->v.o_const.type = CONST_INT;
-                    rv->v.o_const.v.c_int.v = 0;
+                    rv->v.o_const.type = CONST_NONE;
 
                     res = sf_ot_addobj (rv);
                   }
@@ -1550,13 +1619,25 @@ _sf_ev_arith (mod_t *m, expr_t *e)
         nodes[nc++] = last_node->right;
     }
 
-  double res = sf_arith_eval_tree (ac);
+  __sfaarith_res res = sf_arith_eval_tree (m, ac);
 
   obj_t *robj = sf_ast_objnew (OBJ_CONST);
   robj->v.o_const.type = CONST_FLOAT;
-  robj->v.o_const.v.c_float.v = res;
 
-  llnode_t *retval = sf_ot_addobj (robj);
+  llnode_t *retval;
+  if (res.type == SF_ARITH_RES_DOUBLE)
+    {
+      robj->v.o_const.v.c_float.v = res.v.dres.v;
+      retval = sf_ot_addobj (robj);
+    }
+
+  else
+    {
+      robj = res.v.ores.v;
+
+      assert (robj->meta.mem_ref != NULL);
+      retval = robj->meta.mem_ref;
+    }
 
   nc = 0;
   nodes[nc++] = ac;

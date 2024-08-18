@@ -181,7 +181,8 @@ struct _stmt_s
 };
 
 struct _obj_s;
-struct _expr_s
+
+struct __sf_const_s
 {
   int type;
 
@@ -189,36 +190,38 @@ struct _expr_s
   {
     struct
     {
-      int type;
+      sf_charptr v;
 
-      union
-      {
-        struct
-        {
-          sf_charptr v;
+    } c_string;
 
-        } c_string;
+    struct
+    {
+      sf_int v;
 
-        struct
-        {
-          sf_int v;
+    } c_int;
 
-        } c_int;
+    struct
+    {
+      sf_float v;
 
-        struct
-        {
-          sf_float v;
+    } c_float;
 
-        } c_float;
+    struct
+    {
+      int v;
+    } c_bool;
 
-        struct
-        {
-          int v;
-        } c_bool;
+  } v;
 
-      } v;
+};
 
-    } e_const;
+struct _expr_s
+{
+  int type;
+
+  union
+  {
+    struct __sf_const_s e_const;
 
     struct
     {
@@ -315,37 +318,7 @@ struct _obj_s
 
   union
   {
-    struct
-    {
-      int type;
-
-      union
-      {
-        struct
-        {
-          sf_charptr v;
-
-        } c_string;
-
-        struct
-        {
-          sf_int v;
-
-        } c_int;
-
-        struct
-        {
-          sf_float v;
-
-        } c_float;
-
-        struct
-        {
-          int v;
-        } c_bool;
-      } v;
-
-    } o_const;
+    struct __sf_const_s o_const;
 
     struct
     {

@@ -42,6 +42,8 @@ extern "C"
 #define SF_BOOL_FALSE_REPR "false"
 #define SF_DTYPE_NONE_REPR "none"
 
+#define SF_OP_OVRLD_PLUS ("operator+")
+
 #ifndef max
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 #endif
