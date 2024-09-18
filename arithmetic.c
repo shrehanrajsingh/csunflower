@@ -308,29 +308,29 @@ sf_arith_eval_tree (mod_t *m, tree_t *t)
           //   }
 
           if (v->type == OBJ_CONST)
-            //   {
-            //     switch (v->v.o_const.type)
-            //       {
-            //       case CONST_INT:
-            //         {
-            //           res.type = SF_ARITH_RES_DOUBLE;
-            //           res.v.dres.v = v->v.o_const.v.c_int.v;
-            //         }
-            //         break;
-            //
-            //       case CONST_FLOAT:
-            //         {
-            //           res.type = SF_ARITH_RES_DOUBLE;
-            //           res.v.dres.v = v->v.o_const.v.c_float.v;
-            //         }
-            //         break;
-            //
-            //       default:
-            //         goto fb;
-            //       }
-            //   }
-            //
-            // else
+            {
+              switch (v->v.o_const.type)
+                {
+                case CONST_INT:
+                  {
+                    res.type = SF_ARITH_RES_DOUBLE;
+                    res.v.dres.v = v->v.o_const.v.c_int.v;
+                  }
+                  break;
+
+                case CONST_FLOAT:
+                  {
+                    res.type = SF_ARITH_RES_DOUBLE;
+                    res.v.dres.v = v->v.o_const.v.c_float.v;
+                  }
+                  break;
+
+                default:
+                  goto fb;
+                }
+            }
+
+          else
             {
             fb:;
               res.type = SF_ARITH_RES_OBJ;

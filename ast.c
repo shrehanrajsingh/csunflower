@@ -309,100 +309,109 @@ sf_ast_exprgen (tok_t *arr, size_t len)
         {
           sf_charptr p = c.v.t_op.v;
 
-          if (sf_str_eq_rCp (p, "=="))
+          if (sf_str_inStr ("([{", p))
+            gb++;
+
+          if (sf_str_inStr (")]}", p))
+            gb--;
+
+          if (!gb)
             {
-              expr_t pres_res = sf_ast_exprgen (arr, i);
+              if (sf_str_eq_rCp (p, "=="))
+                {
+                  expr_t pres_res = sf_ast_exprgen (arr, i);
 
-              res.type = EXPR_CONDITIONAL_EQEQ;
-              res.v.expr_conditional.lval = sfmalloc (sizeof (expr_t));
-              *res.v.expr_conditional.lval = pres_res;
-              res.v.expr_conditional.rval = NULL;
+                  res.type = EXPR_CONDITIONAL_EQEQ;
+                  res.v.expr_conditional.lval = sfmalloc (sizeof (expr_t));
+                  *res.v.expr_conditional.lval = pres_res;
+                  res.v.expr_conditional.rval = NULL;
 
-              expr_t rv = sf_ast_exprgen (arr + i + 1, len - i - 1);
-              res.v.expr_conditional.rval = sfmalloc (sizeof (expr_t));
-              *res.v.expr_conditional.rval = rv;
+                  expr_t rv = sf_ast_exprgen (arr + i + 1, len - i - 1);
+                  res.v.expr_conditional.rval = sfmalloc (sizeof (expr_t));
+                  *res.v.expr_conditional.rval = rv;
 
-              goto end;
-            }
+                  goto end;
+                }
 
-          else if (sf_str_eq_rCp (p, "!="))
-            {
-              expr_t pres_res = sf_ast_exprgen (arr, i);
+              else if (sf_str_eq_rCp (p, "!="))
+                {
+                  expr_t pres_res = sf_ast_exprgen (arr, i);
 
-              res.type = EXPR_CONDITIONAL_NEQ;
-              res.v.expr_conditional.lval = sfmalloc (sizeof (expr_t));
-              *res.v.expr_conditional.lval = pres_res;
-              res.v.expr_conditional.rval = NULL;
+                  res.type = EXPR_CONDITIONAL_NEQ;
+                  res.v.expr_conditional.lval = sfmalloc (sizeof (expr_t));
+                  *res.v.expr_conditional.lval = pres_res;
+                  res.v.expr_conditional.rval = NULL;
 
-              expr_t rv = sf_ast_exprgen (arr + i + 1, len - i - 1);
-              res.v.expr_conditional.rval = sfmalloc (sizeof (expr_t));
-              *res.v.expr_conditional.rval = rv;
+                  expr_t rv = sf_ast_exprgen (arr + i + 1, len - i - 1);
+                  res.v.expr_conditional.rval = sfmalloc (sizeof (expr_t));
+                  *res.v.expr_conditional.rval = rv;
 
-              goto end;
-            }
+                  goto end;
+                }
 
-          else if (sf_str_eq_rCp (p, ">"))
-            {
-              expr_t pres_res = sf_ast_exprgen (arr, i);
+              else if (sf_str_eq_rCp (p, ">"))
+                {
+                  expr_t pres_res = sf_ast_exprgen (arr, i);
 
-              res.type = EXPR_CONDITIONAL_GT;
-              res.v.expr_conditional.lval = sfmalloc (sizeof (expr_t));
-              *res.v.expr_conditional.lval = pres_res;
-              res.v.expr_conditional.rval = NULL;
+                  res.type = EXPR_CONDITIONAL_GT;
+                  res.v.expr_conditional.lval = sfmalloc (sizeof (expr_t));
+                  *res.v.expr_conditional.lval = pres_res;
+                  res.v.expr_conditional.rval = NULL;
 
-              expr_t rv = sf_ast_exprgen (arr + i + 1, len - i - 1);
-              res.v.expr_conditional.rval = sfmalloc (sizeof (expr_t));
-              *res.v.expr_conditional.rval = rv;
+                  expr_t rv = sf_ast_exprgen (arr + i + 1, len - i - 1);
+                  res.v.expr_conditional.rval = sfmalloc (sizeof (expr_t));
+                  *res.v.expr_conditional.rval = rv;
 
-              goto end;
-            }
+                  goto end;
+                }
 
-          else if (sf_str_eq_rCp (p, "<"))
-            {
-              expr_t pres_res = sf_ast_exprgen (arr, i);
+              else if (sf_str_eq_rCp (p, "<"))
+                {
+                  expr_t pres_res = sf_ast_exprgen (arr, i);
 
-              res.type = EXPR_CONDITIONAL_LT;
-              res.v.expr_conditional.lval = sfmalloc (sizeof (expr_t));
-              *res.v.expr_conditional.lval = pres_res;
-              res.v.expr_conditional.rval = NULL;
+                  res.type = EXPR_CONDITIONAL_LT;
+                  res.v.expr_conditional.lval = sfmalloc (sizeof (expr_t));
+                  *res.v.expr_conditional.lval = pres_res;
+                  res.v.expr_conditional.rval = NULL;
 
-              expr_t rv = sf_ast_exprgen (arr + i + 1, len - i - 1);
-              res.v.expr_conditional.rval = sfmalloc (sizeof (expr_t));
-              *res.v.expr_conditional.rval = rv;
+                  expr_t rv = sf_ast_exprgen (arr + i + 1, len - i - 1);
+                  res.v.expr_conditional.rval = sfmalloc (sizeof (expr_t));
+                  *res.v.expr_conditional.rval = rv;
 
-              goto end;
-            }
+                  goto end;
+                }
 
-          else if (sf_str_eq_rCp (p, ">="))
-            {
-              expr_t pres_res = sf_ast_exprgen (arr, i);
+              else if (sf_str_eq_rCp (p, ">="))
+                {
+                  expr_t pres_res = sf_ast_exprgen (arr, i);
 
-              res.type = EXPR_CONDITIONAL_GTEQ;
-              res.v.expr_conditional.lval = sfmalloc (sizeof (expr_t));
-              *res.v.expr_conditional.lval = pres_res;
-              res.v.expr_conditional.rval = NULL;
+                  res.type = EXPR_CONDITIONAL_GTEQ;
+                  res.v.expr_conditional.lval = sfmalloc (sizeof (expr_t));
+                  *res.v.expr_conditional.lval = pres_res;
+                  res.v.expr_conditional.rval = NULL;
 
-              expr_t rv = sf_ast_exprgen (arr + i + 1, len - i - 1);
-              res.v.expr_conditional.rval = sfmalloc (sizeof (expr_t));
-              *res.v.expr_conditional.rval = rv;
+                  expr_t rv = sf_ast_exprgen (arr + i + 1, len - i - 1);
+                  res.v.expr_conditional.rval = sfmalloc (sizeof (expr_t));
+                  *res.v.expr_conditional.rval = rv;
 
-              goto end;
-            }
+                  goto end;
+                }
 
-          else if (sf_str_eq_rCp (p, "<="))
-            {
-              expr_t pres_res = sf_ast_exprgen (arr, i);
+              else if (sf_str_eq_rCp (p, "<="))
+                {
+                  expr_t pres_res = sf_ast_exprgen (arr, i);
 
-              res.type = EXPR_CONDITIONAL_LTEQ;
-              res.v.expr_conditional.lval = sfmalloc (sizeof (expr_t));
-              *res.v.expr_conditional.lval = pres_res;
-              res.v.expr_conditional.rval = NULL;
+                  res.type = EXPR_CONDITIONAL_LTEQ;
+                  res.v.expr_conditional.lval = sfmalloc (sizeof (expr_t));
+                  *res.v.expr_conditional.lval = pres_res;
+                  res.v.expr_conditional.rval = NULL;
 
-              expr_t rv = sf_ast_exprgen (arr + i + 1, len - i - 1);
-              res.v.expr_conditional.rval = sfmalloc (sizeof (expr_t));
-              *res.v.expr_conditional.rval = rv;
+                  expr_t rv = sf_ast_exprgen (arr + i + 1, len - i - 1);
+                  res.v.expr_conditional.rval = sfmalloc (sizeof (expr_t));
+                  *res.v.expr_conditional.rval = rv;
 
-              goto end;
+                  goto end;
+                }
             }
         }
 
@@ -931,9 +940,13 @@ sf_ast_exprgen (tok_t *arr, size_t len)
                   {
                     tok_t d = arr[j];
 
+                    // sf_tokenizer_print (d);
+
                     if (d.type == TOK_OPERATOR)
                       {
                         sf_charptr p = d.v.t_op.v;
+
+                        // printf ("%s %d\n", SFCPTR_TOSTR (p), gb);
 
                         if (sf_str_eq_rCp (p, ")") && !gb)
                           {
@@ -1514,7 +1527,7 @@ end:
 stmt_t
 _sf_stmt_whileblockgen (tok_t *arr, size_t idx, size_t *jptr)
 {
-  // similar to for block
+  // function definition is similar to that of `for` block
   stmt_t res;
   res.type = STMT_WHILE_BLOCK;
 
@@ -1543,6 +1556,12 @@ _sf_stmt_whileblockgen (tok_t *arr, size_t idx, size_t *jptr)
   assert (cei); // Syntax error
 
   res.v.blk_while.cond = sfmalloc (sizeof (expr_t));
+
+  // for (int i = 0; i < cei - idx - 1; i++)
+  //   {
+  //     sf_tokenizer_print (arr[idx + 1 + i]);
+  //   }
+
   *res.v.blk_while.cond = sf_ast_exprgen (arr + idx + 1, cei - idx - 1);
 
   tok_t *body_end
@@ -1899,8 +1918,41 @@ sf_ast_freeObj (obj_t **obj)
 
     case OBJ_CLASSOBJ:
       {
-        // TODO Call destructor
-        sf_class_free (p->v.o_cobj.val);
+        class_t *ct = p->v.o_cobj.val;
+        llnode_t *kln = sf_mod_getVar (ct->mod, "_kill");
+        int drop_f = ct->meta.kill_fun_called;
+
+        if (kln != NULL)
+          {
+            sf_ll_set_meta_refcount (kln, kln->meta.ref_count + 1);
+            obj_t *kv = (obj_t *)kln->val;
+
+            if (kv->type == OBJ_FUN && !ct->meta.kill_fun_called)
+              {
+                ct->meta.kill_fun_called = 1;
+                fun_t *f = kv->v.o_fun.f;
+
+                assert (f->argc == 1 && "_kill() expects 1 argument.");
+                mod_t *kmod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+
+                kmod->body = f->mod->body;
+                kmod->body_len = f->mod->body_len;
+
+                obj_t *kp = sf_ast_objnew (OBJ_CLASSOBJ);
+                kp->v.o_cobj.val = ct;
+
+                sf_mod_addVar (kmod, "self", sf_ot_addobj (kp));
+                kmod->parent = f->mod->parent;
+
+                sf_parser_exec (kmod);
+                sf_mod_free (kmod);
+              }
+
+            sf_ll_set_meta_refcount (kln, kln->meta.ref_count - 1);
+          }
+
+        if (!drop_f)
+          sf_class_free (p->v.o_cobj.val);
       }
       break;
 

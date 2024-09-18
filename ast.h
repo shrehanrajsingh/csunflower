@@ -3,11 +3,11 @@
 #include "arithmetic.h"
 #include "function.h"
 #include "header.h"
+#include "llist.h"
 #include "sfclass.h"
 #include "sfmem.h"
 #include "tokenizer.h"
 #include "tree.h"
-#include "llist.h"
 
 /**
  * Three divisions of ASTs
@@ -212,7 +212,6 @@ struct __sf_const_s
     } c_bool;
 
   } v;
-
 };
 
 struct _expr_s
@@ -354,7 +353,10 @@ typedef struct _stmt_s stmt_t;
 typedef struct _expr_s expr_t;
 typedef struct _obj_s obj_t;
 
-#define OBJ_IS_NUMBER(X) ((X)->type == OBJ_CONST && ((X)->v.o_const.type == CONST_INT || (X)->v.o_const.type == CONST_FLOAT))
+#define OBJ_IS_NUMBER(X)                                                      \
+  ((X)->type == OBJ_CONST                                                     \
+   && ((X)->v.o_const.type == CONST_INT                                       \
+       || (X)->v.o_const.type == CONST_FLOAT))
 
 #ifdef __cplusplus
 extern "C"

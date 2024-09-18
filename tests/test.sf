@@ -1,1 +1,4 @@
-putln ("Hello, " + 12)
+import 'module.sf' as module
+
+a = module.Coord (10, 15)
+b = module.Coord (20, 30)

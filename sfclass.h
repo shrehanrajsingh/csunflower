@@ -30,6 +30,8 @@ struct _sf_class_s
     int iscobj;
     struct _sf_class_s *clref;
 
+    int kill_fun_called;
+
   } meta;
 };
 

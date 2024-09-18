@@ -40,6 +40,7 @@ sf_class_new (const char *_Name, int _Type)
   t->type = _Type;
   t->meta.iscobj = 0;
   t->meta.clref = NULL;
+  t->meta.kill_fun_called = 0;
 
   return t;
 }
@@ -78,15 +79,15 @@ sf_class_free (class_t *c)
       CLASS_CACHE[cch_count++] = c->meta.id;
     }
 
-  if (c->meta.iscobj)
-  {
-    // ? Call destructor
-    // TODO
-  }
+  // if (c->meta.iscobj)
+  //   {
+  //     // ? Call destructor
+  //     // TODO
+  //   }
 
   sffree (c->name);
 
-  // TODO
+  // TODO Clear inh_list
 
   if (c->mod)
     sf_mod_free (c->mod);

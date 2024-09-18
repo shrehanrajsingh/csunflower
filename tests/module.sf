@@ -1,0 +1,7 @@
+class Coord
+    x = none
+    y = none
+
+    fun _init (self, X, Y)
+        self.x = X
+        self.y = Y

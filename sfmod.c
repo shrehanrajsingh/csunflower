@@ -66,6 +66,73 @@ sf_mod_free (mod_t *mod)
   for (size_t i = 0; allkeys[i] != NULL; i++)
     {
       llnode_t *v = sf_trie_getVal (mod->vtable, allkeys[i]);
+
+      if (v == NULL)
+        continue;
+
+      obj_t *vo = (obj_t *)v->val;
+      if (vo->meta.pa_size > 0)
+        {
+          for (size_t i = 0; i < vo->meta.pa_size; i++)
+            {
+              llnode_t *t = vo->meta.passargs[i]->meta.mem_ref;
+              sf_ll_set_meta_refcount (t, t->meta.ref_count - 1);
+            }
+
+          sffree (vo->meta.passargs);
+          vo->meta.passargs = NULL;
+          vo->meta.pa_size = 0;
+        }
+    }
+
+  /**
+   * ! BUG
+   * * Resolved
+   * class objects might have a `_kill` routine
+   * which might involve variables of the module.
+   * If those variables are removed before class object
+   * is destroyed, it would lead to undefined behaviour.
+   *
+   * ? Solution
+   * Call the `_kill` routine of all class objects before
+   * destroying any variables
+   */
+
+  for (size_t i = 0; allkeys[i] != NULL; i++)
+    {
+      if (allkeys[i][0] == '\0')
+        continue;
+
+      llnode_t *v = sf_trie_getVal (mod->vtable, allkeys[i]);
+
+      if (v == NULL)
+        continue;
+
+      obj_t *vo = (obj_t *)v->val;
+
+      if (vo->type == OBJ_CLASSOBJ && v->meta.ref_count == 1)
+        {
+          // printf ("%s %d %d\n", allkeys[i], vo->type, v->meta.ref_count);
+          sf_ll_set_meta_refcount (
+              v, 0); // kill routine will be called in objfree routine
+
+          allkeys[i][0] = '\0';
+        }
+    }
+
+  for (size_t i = 0; allkeys[i] != NULL; i++)
+    {
+      if (allkeys[i][0] == '\0')
+        {
+          sffree (allkeys[i]);
+          continue;
+        }
+
+      llnode_t *v = sf_trie_getVal (mod->vtable, allkeys[i]);
+
+      if (v == NULL)
+        continue;
+
       // printf ("%s %d\n", allkeys[i], v->meta.ref_count);
       sf_ll_set_meta_refcount (v, v->meta.ref_count - 1);
 

@@ -318,7 +318,10 @@ eval_expr (mod_t *mod, expr_t *e)
     case EXPR_VAR_DECL:
       {
         size_t pres_sz = mod->body_len;
-        stmt_t *pres_tree = mod->body;
+        stmt_t pres_fs = *mod->body;
+
+        mod_t *par_pres = mod->parent;
+        mod->parent = NULL;
 
         mod->body_len = 1;
         *mod->body = (stmt_t){ .type = STMT_VAR_DECL,
@@ -329,8 +332,10 @@ eval_expr (mod_t *mod, expr_t *e)
 
         sf_parser_exec (mod);
 
-        mod->body = pres_tree;
+        *mod->body = pres_fs;
         mod->body_len = pres_sz;
+
+        mod->parent = par_pres;
 
         r = eval_expr (mod, e->v.var_decl.name);
       }
@@ -722,6 +727,8 @@ eval_expr (mod_t *mod, expr_t *e)
             rv->meta.passargs = sfmalloc (sizeof (*rv->meta.passargs));
 
             rv->meta.passargs[rv->meta.pa_size++] = par_obj;
+            par_obj->meta.mem_ref = par_ll;
+
             sf_ll_set_meta_refcount (par_ll, par_ll->meta.ref_count + 1);
           }
 
@@ -1131,7 +1138,7 @@ _sf_fcall (mod_t *mod, expr_t *e)
   if (e->v.fun_call.name->type != -1) // function call
     {
       llnode_t *name = eval_expr (mod, e->v.fun_call.name);
-      obj_t *fref = name->val;
+      obj_t *fref = (obj_t *)name->val;
 
       sf_ll_set_meta_refcount (name, name->meta.ref_count + 1);
 
@@ -1166,13 +1173,14 @@ _sf_fcall (mod_t *mod, expr_t *e)
 
             for (size_t j = 0; j < e->v.fun_call.arg_count; j++)
               {
-                expr_t *ee = sfmalloc (sizeof (*ee));
-                *ee = e->v.fun_call.args[j];
+                // expr_t *ee = sfmalloc (sizeof (*ee));
+                // *ee = e->v.fun_call.args[j];
 
-                llnode_t *on = eval_expr (mod, ee);
+                llnode_t *on = eval_expr (mod, &e->v.fun_call.args[j]);
 
-                sffree (ee);
+                // sffree (ee);
                 // printf ("%s\n", fn->args[j]);
+                // printf ("%d\n", on->meta.ref_count);
                 sf_mod_addVar (nmod, fn->args[j + fref->meta.pa_size], on);
               }
 
@@ -1245,6 +1253,15 @@ _sf_fcall (mod_t *mod, expr_t *e)
 
       sf_ll_set_meta_refcount (name, name->meta.ref_count - 1);
 
+      /**
+       * DO NOT UNCOMMENT.
+       * It breaks the code
+       * Causes deallocation twice
+       * Source: tested it.
+       * Reason for double deallocation: currently unknown
+       */
+      // if (res != NULL)
+      //   res->meta.ref_count--;
       // printf ("[%d]\n", res->meta.ref_count);
 
       return res;
@@ -1321,6 +1338,18 @@ _sf_class_construct (mod_t *mod, obj_t *o, expr_t *e)
   oj->v.o_cobj.val = nobj;
 
   llnode_t *oll = sf_ot_addobj (oj);
+
+  /**
+   * We pass `oll` to _init ()
+   * In order to prevent being free'd
+   * We set it's reference count to 1
+   * So when passed as an argument it's reference count
+   * goes to 2 and upon destruction, it falls back to 1
+   * thereby preventing deallocation.
+   *
+   * Later, we will return this same object
+   * but with reference count = 0
+   */
   sf_ll_set_meta_refcount (oll, oll->meta.ref_count + 1);
 
   /*
@@ -1381,7 +1410,7 @@ _sf_class_construct (mod_t *mod, obj_t *o, expr_t *e)
       sf_ll_set_meta_refcount (_init_ll, _init_ll->meta.ref_count - 1);
     }
 
-  // WARNING:
+  // ! WARNING: Possibly unsafe
   /**
    * Manually reset flags (and not using functions)
    * because I do not wish to lose the object.

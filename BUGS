@@ -1,0 +1,29 @@
+#1: RESOLVED
+object counting for member accessable entities is bugged.
+class node 
+    val = none
+    next = none
+
+    fun _init (self, val, next)
+        self.val = val
+        self.next = next
+    
+    fun add (self, val)
+        if self.next != none
+            self.next.add (val)
+        else
+            self.next = node (val, none)
+    
+    fun print (self)
+        putln (self.val)
+        if self.next != none
+            self.next.print ()
+    
+    fun _kill (self)
+        putln ('Killing')
+
+a = node (1, none)
+a.add (2)
+a.add (3)
+-----
+Remarks: Kill function is not called at the end of program

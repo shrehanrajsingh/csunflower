@@ -253,6 +253,24 @@ ctr_fun_rt (mod_t *mod)
 }
 
 llnode_t *
+ord_fun_rt (mod_t *mod)
+{
+  obj_t *s = (obj_t *)sf_mod_getVar (mod, "str")->val;
+
+  assert (s->type == OBJ_CONST && s->v.o_const.type == CONST_STRING);
+  const char *p = SFCPTR_TOSTR (s->v.o_const.v.c_string.v);
+
+  assert (strlen (p) == 1);
+  char c = *p;
+
+  obj_t *r = sf_ast_objnew (OBJ_CONST);
+  r->v.o_const.type = CONST_INT;
+  r->v.o_const.v.c_int.v = (int)c;
+
+  return sf_ot_addobj (r);
+}
+
+llnode_t *
 nativemethod_type_str_name_operator_plus (mod_t *mod)
 {
   obj_t *self = (obj_t *)sf_mod_getVar (mod, "self")->val;
@@ -409,9 +427,49 @@ test5 ()
 
   /********************************************* */
 
+  /********************************************* */
+  /* ord(str) function */
+
+  {
+    mod_t *ord_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+    obj_t *str_obj = sf_ast_objnew (OBJ_CONST);
+
+    str_obj->v.o_const.type = CONST_STRING;
+    str_obj->v.o_const.v.c_string.v = sf_str_new_fromStr ("");
+
+    sf_mod_addVar (ord_mod, "str", sf_ot_addobj (str_obj));
+
+    fun_t *inp_fun = sf_fun_new ("ord", SF_FUN_NATIVE, ord_mod, ord_fun_rt);
+
+    sf_fun_addarg (inp_fun, "str");
+
+    fun_t *ofp = sf_fun_add (inp_fun);
+
+    obj_t *or_obj = sf_ast_objnew (OBJ_FUN);
+    or_obj->v.o_fun.f = ofp;
+
+    sf_mod_addVar (m, "ord", sf_ot_addobj (or_obj));
+  }
+
+  /********************************************* */
+
   // while (1)
   {
     sf_parser_exec (m);
+    // mod_t *ml = sf_mod_new (1, NULL);
+
+    // obj_t *o = sf_ast_objnew (OBJ_CONST);
+    // o->v.o_const.type = CONST_NONE;
+
+    // llnode_t *ol = sf_ot_addobj (o);
+
+    // sf_mod_addVar (ml, "test", ol);
+    // sf_mod_addVar (ml, "test1", ol);
+    // sf_mod_addVar (ml, "test2", ol);
+    // sf_mod_addVar (ml, "test3", ol);
+
+    // sf_mod_free (ml);
+    // printf ("%d\n", ol->meta.ref_count);
   }
 
   char **k = sf_trie_getKeys (m->vtable);
@@ -427,6 +485,14 @@ test5 ()
   //   {
   //     printf ("%d\n", (*arrstack)[i].len);
   //   }
+
+  for (size_t i = 0; k[i] != NULL; i++)
+    {
+      sffree (k[i]);
+    }
+  sffree (k);
+
+  sf_mod_free (m);
 }
 
 void
