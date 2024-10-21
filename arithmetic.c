@@ -342,6 +342,8 @@ sf_arith_eval_tree (mod_t *m, tree_t *t)
           assert (0 && "Illegal zone in arithmetic.");
 
           expr_t *v = c->v.val;
+
+          // sf_ast_exprprint (*v);
           assert (v->type == EXPR_CONSTANT);
 
           // switch (v->v.e_const.type)

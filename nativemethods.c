@@ -23,6 +23,7 @@ sf_nm_add (const char *name, int type, fun_t *ref)
       vl->size = 1;
 
       sf_trie_add (sfnm_stack, (char *)name, (void *)vl);
+      sf_fun_add (ref);
     }
   else
     {

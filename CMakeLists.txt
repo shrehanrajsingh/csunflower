@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.5.0)
+
 project(sunflower VERSION 0.1.0 LANGUAGES C)
+
 
 enable_testing()
 add_subdirectory(tests)
@@ -21,7 +23,7 @@ add_library(sunflower
     tree.h tree.c
     sfclass.h sfclass.c
     header.h
-        nativemethods.c
-        nativemethods.h
+    nativemethods.h nativemethods.c
+    module.h module.c
 )
 

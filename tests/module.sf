@@ -5,3 +5,10 @@ class Coord
     fun _init (self, X, Y)
         self.x = X
         self.y = Y
+    
+    fun print (self)
+        put ('Coordinates (')
+        put (self.x)
+        put (', ')
+        put (self.y)
+        putln (')')

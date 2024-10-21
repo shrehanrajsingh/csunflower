@@ -12,6 +12,8 @@ stmt_t _sf_stmt_forblockgen (tok_t *_arr, size_t _idx, size_t *_jumper);
 stmt_t _sf_stmt_fundeclgen (tok_t *_arr, size_t _idx, size_t *_jumper);
 stmt_t _sf_stmt_classdeclgen (tok_t *_arr, size_t _idx, size_t *_jumper);
 stmt_t _sf_stmt_whileblockgen (tok_t *_arr, size_t _idx, size_t *_jumper);
+stmt_t _sf_stmt_importgen (tok_t *_arr, size_t _idx, size_t *_jumper);
+stmt_t _sf_stmt_returngen (tok_t *_arr, size_t _idx, size_t *_jumper);
 
 /**
  * Function returns _arr + _C
@@ -183,6 +185,20 @@ sf_ast_stmtgen (tok_t *arr, size_t *sptr)
 
                     /* res = sfrealloc (res, (rc + 1) * sizeof (*res));
                         res[rc++] = t; */
+
+                    satsr (res, &rc, &rcap, t);
+                  }
+
+                else if (sf_str_eq_rCp (cv, "import"))
+                  {
+                    stmt_t t = _sf_stmt_importgen (arr, i, &i);
+
+                    satsr (res, &rc, &rcap, t);
+                  }
+
+                else if (sf_str_eq_rCp (cv, "return"))
+                  {
+                    stmt_t t = _sf_stmt_returngen (arr, i, &i);
 
                     satsr (res, &rc, &rcap, t);
                   }
@@ -1789,6 +1805,92 @@ _sf_stmt_classdeclgen (tok_t *arr, size_t idx, size_t *jptr)
   return res;
 }
 
+stmt_t
+_sf_stmt_importgen (tok_t *arr, size_t idx, size_t *jptr)
+{
+  stmt_t res;
+  res.type = STMT_IMPORT;
+  res.v.stmt_import.alias = NULL;
+  res.v.stmt_import.path = NULL;
+
+  tok_t *nt = arr + idx + 1;
+  assert (nt->type == TOK_STRING);
+
+  res.v.stmt_import.path = sf_str_new_fromStr (SFCPTR_TOSTR (nt->v.t_str.v));
+  nt++;
+
+  if (nt->type == TOK_IDENTIFIER && sf_str_eq_rCp (nt->v.t_str.v, "as"))
+    {
+      nt++;
+
+      assert (nt->type == TOK_IDENTIFIER);
+
+      res.v.stmt_import.alias
+          = sf_str_new_fromStr (SFCPTR_TOSTR (nt->v.t_str.v));
+    }
+
+  (*jptr) += nt - arr;
+  return res;
+}
+
+stmt_t
+_sf_stmt_returngen (tok_t *arr, size_t idx, size_t *jptr)
+{
+  stmt_t res;
+  res.type = STMT_RETURN;
+  res.v.stmt_return.val = NULL;
+
+  size_t end_idx = idx;
+  int gb = 0;
+
+  for (size_t i = idx + 1; arr[i].type != TOK_EOF; i++)
+    {
+      tok_t *c = &arr[i];
+
+      if (c->type == TOK_OPERATOR)
+        {
+          sf_charptr q = c->v.t_op.v;
+
+          if (sf_str_inStr ("([{", q))
+            gb++;
+
+          else if (sf_str_inStr (")]}", q))
+            gb--;
+        }
+
+      if (c->type == TOK_NEWLINE && !gb)
+        {
+          end_idx = i;
+          break;
+        }
+    }
+
+  if (end_idx == idx)
+    {
+      /*
+        empty return
+        return None
+      */
+      expr_t *none_Expr = sfmalloc (sizeof (*none_Expr));
+      none_Expr->type = EXPR_CONSTANT;
+      none_Expr->v.e_const.type = CONST_NONE;
+
+      res.v.stmt_return.val = none_Expr;
+      (*jptr)++;
+    }
+
+  else
+    {
+      expr_t *r = sfmalloc (sizeof (*r));
+      *r = sf_ast_exprgen (arr + idx + 1, end_idx - idx);
+
+      res.v.stmt_return.val = r;
+      (*jptr) = end_idx;
+    }
+
+  return res;
+}
+
 size_t
 _sf_stmt_gettbsp (tok_t *arr, size_t idx)
 {
@@ -2289,6 +2391,8 @@ sf_ast_stmtprint (stmt_t s)
             printf ("(%d) ", i);
             sf_ast_stmtprint (s.v.blk_if.body[i]);
           }
+
+        printf ("endif----\n");
       }
       break;
 
@@ -2381,6 +2485,22 @@ sf_ast_stmtprint (stmt_t s)
             printf ("[%d] ", i);
             sf_ast_stmtprint (s.v.class_decl.body[i]);
           }
+      }
+      break;
+
+    case STMT_IMPORT:
+      {
+        printf ("import\n"
+                "path: \'%s\'\n"
+                "alias: %s\n",
+                s.v.stmt_import.path, s.v.stmt_import.alias);
+      }
+      break;
+
+    case STMT_RETURN:
+      {
+        printf ("return: ");
+        sf_ast_exprprint (*s.v.stmt_return.val);
       }
       break;
 

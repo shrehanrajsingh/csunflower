@@ -11,6 +11,19 @@ sf_tree_new (void *val, tree_t *l, tree_t *r)
   return t;
 }
 
+SF_API tree_t *
+sf_tree_copy_deep (tree_t *t, void *(_ValCopy_Routine)(void *))
+{
+  if (t == NULL)
+    return t;
+
+  tree_t *r = sf_tree_new (_ValCopy_Routine (t->val),
+                           sf_tree_copy_deep (t->left, _ValCopy_Routine),
+                           sf_tree_copy_deep (t->right, _ValCopy_Routine));
+
+  return r;
+}
+
 SF_API void
 sf_tree_addleft_leaf (tree_t *t, void *v)
 {
@@ -134,16 +147,19 @@ sf_tree_traverse_levelord (tree_t *t, __sftreetraversal_ret_routine r)
 }
 
 SF_API void
-sf_tree_free (tree_t *t)
+sf_tree_free (tree_t *t, void (_ValFree_Routine) (void *))
 {
   if (t == NULL)
     return;
 
+  if (_ValFree_Routine != NULL)
+    _ValFree_Routine (t->val);
+
   if (t->left)
-    sf_tree_free (t->left);
+    sf_tree_free (t->left, _ValFree_Routine);
 
   if (t->right)
-    sf_tree_free (t->right);
+    sf_tree_free (t->right, _ValFree_Routine);
 
   sffree (t);
 }

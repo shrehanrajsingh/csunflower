@@ -21,6 +21,8 @@ extern "C"
 #endif
 
   SF_API tree_t *sf_tree_new (void *_Val, tree_t *_Left, tree_t *_Right);
+  SF_API tree_t *sf_tree_copy_deep (tree_t *,
+                                    void *(_ValCopy_Routine)(void *));
 
   SF_API void sf_tree_addleft_leaf (tree_t *_Tree, void *_Val);
 
@@ -42,7 +44,7 @@ extern "C"
   SF_API int sf_tree_height (tree_t *_Tree);
   SF_API int sf_tree_countNodes (tree_t *_Tree);
 
-  SF_API void sf_tree_free (tree_t *_Tree);
+  SF_API void sf_tree_free (tree_t *_Tree, void (_ValFree_Routine) (void *));
 
 #ifdef __cplusplus
 }

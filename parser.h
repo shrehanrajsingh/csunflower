@@ -29,6 +29,7 @@ extern "C"
   SF_API parser_rt sf_parser_exec (mod_t *_Mod);
 
   SF_API char *sf_parser_objRepr (mod_t *_Mod, obj_t *_Obj);
+  SF_API llnode_t *eval_expr (mod_t *, expr_t *);
 
 #ifdef __cplusplus
 }

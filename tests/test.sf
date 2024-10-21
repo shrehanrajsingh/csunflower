@@ -1,4 +1,13 @@
-import 'module.sf' as module
+class Animal
+    name = none
 
-a = module.Coord (10, 15)
-b = module.Coord (20, 30)
+    fun _init (self, name)
+        self.name = name
+
+class Dog (Animal)
+    
+    fun _init (self)
+        super (self, Animal, ['dog'])
+    
+    fun speak (self)
+        putln ('Bark')

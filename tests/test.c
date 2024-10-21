@@ -294,9 +294,142 @@ nativemethod_type_str_name_operator_plus (mod_t *mod)
   return sf_ot_addobj (o);
 }
 
+llnode_t *
+nativemethod_type_str_name_replace (mod_t *mod)
+{
+  obj_t *self = (obj_t *)sf_mod_getVar (mod, "self")->val,
+        *arg1 = (obj_t *)sf_mod_getVar (mod, "a1")->val,
+        *arg2 = (obj_t *)sf_mod_getVar (mod, "a2")->val;
+
+  char *s = SFCPTR_TOSTR (self->v.o_const.v.c_string.v),
+       *a1 = SFCPTR_TOSTR (arg1->v.o_const.v.c_string.v),
+       *a2 = SFCPTR_TOSTR (arg2->v.o_const.v.c_string.v);
+
+  size_t sl = strlen (s), a1l = strlen (a1), a2l = strlen (a2);
+  size_t p = 0;
+
+  sf_charptr r = sf_str_new_empty ();
+
+  for (size_t i = 0; i < sl; i++)
+    {
+      if (!strncmp (s + i, a1, a1l))
+        {
+          sf_str_push (&r, a2);
+          i += a1l - 1;
+        }
+      else
+        sf_str_pushchr (&r, s[i]);
+    }
+
+  sf_str_free (&self->v.o_const.v.c_string.v);
+  self->v.o_const.v.c_string.v = r;
+
+  obj_t *res = sf_ast_objnew (OBJ_CONST);
+  res->v.o_const.type = CONST_NONE;
+
+  return sf_ot_addobj (res);
+}
+
+llnode_t *
+nativemethod_type_int_name_speak (mod_t *mod)
+{
+  obj_t *self = (obj_t *)sf_mod_getVar (mod, "self")->val;
+
+  char *p = sf_parser_objRepr (mod, self);
+  printf ("%s\n", p);
+
+  sffree (p);
+
+  obj_t *o = sf_ast_objnew (OBJ_CONST);
+  o->v.o_const.type = CONST_NONE;
+
+  return sf_ot_addobj (o);
+}
+
+llnode_t *
+nativemethods_type_int_name_bin (mod_t *mod)
+{
+  obj_t *self = (obj_t *)sf_mod_getVar (mod, "self")->val;
+
+  sf_int i = self->v.o_const.v.c_int.v;
+  sf_charptr rs = sf_str_new_empty ();
+
+  while (i != 0)
+    {
+      sf_str_pushchr (&rs, i % 2 + '0');
+      i /= 2;
+    }
+
+  sf_str_push (&rs, "b0");
+  sf_str_reverse (&rs);
+
+  obj_t *res = sf_ast_objnew (OBJ_CONST);
+  res->v.o_const.type = CONST_STRING;
+  res->v.o_const.v.c_string.v = rs;
+
+  return sf_ot_addobj (res);
+}
+
+llnode_t *
+nativemethods_type_int_name_oct (mod_t *mod)
+{
+  obj_t *self = (obj_t *)sf_mod_getVar (mod, "self")->val;
+
+  sf_int i = self->v.o_const.v.c_int.v;
+  sf_charptr rs = sf_str_new_empty ();
+
+  while (i != 0)
+    {
+      sf_str_pushchr (&rs, i % 8 + '0');
+      i /= 8;
+    }
+
+  sf_str_push (&rs, "o0");
+  sf_str_reverse (&rs);
+
+  obj_t *res = sf_ast_objnew (OBJ_CONST);
+  res->v.o_const.type = CONST_STRING;
+  res->v.o_const.v.c_string.v = rs;
+
+  return sf_ot_addobj (res);
+}
+
+llnode_t *
+nativemethods_type_int_name_hex (mod_t *mod)
+{
+  obj_t *self = (obj_t *)sf_mod_getVar (mod, "self")->val;
+
+  sf_int i = self->v.o_const.v.c_int.v;
+  sf_charptr rs = sf_str_new_empty ();
+
+  char q;
+  while (i != 0)
+    {
+      q = i % 16;
+      if (q > 9)
+        q = 'a' + (q - 10);
+      else
+        q += '0';
+
+      sf_str_pushchr (&rs, q);
+      i /= 16;
+    }
+
+  sf_str_push (&rs, "x0");
+  sf_str_reverse (&rs);
+
+  obj_t *res = sf_ast_objnew (OBJ_CONST);
+  res->v.o_const.type = CONST_STRING;
+  res->v.o_const.v.c_string.v = rs;
+
+  return sf_ot_addobj (res);
+}
+
 void
 test5 ()
 {
+  sf_module_addlookuppath ("../../tests/");
+
   char *cont = readfile ("../../tests/test.sf");
 
   tok_t *t = sf_tokenizer_gen (cont);
@@ -304,8 +437,6 @@ test5 ()
   stmt_t *st = sf_ast_stmtgen (t, &sptr);
 
   mod_t *m = sf_mod_new (MOD_TYPE_FILE, NULL);
-  m->body = st;
-  m->body_len = sptr;
 
   /********************************************* */
   /* put(arg) function */
@@ -409,6 +540,7 @@ test5 ()
   /********************************************* */
 
   /********************************************* */
+  /* STRING METHODS */
   /* ''.operator+() function */
 
   {
@@ -423,6 +555,21 @@ test5 ()
     fun_t *sopf = sf_fun_add (sop_fun);
 
     sf_nm_add (SF_OP_OVRLD_PLUS, CONST_STRING, sopf);
+  }
+
+  {
+    mod_t *rp_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+
+    fun_t *rp_fun = sf_fun_new ("replace", SF_FUN_NATIVE, rp_mod,
+                                nativemethod_type_str_name_replace);
+
+    sf_fun_addarg (rp_fun, "self");
+    sf_fun_addarg (rp_fun, "a1");
+    sf_fun_addarg (rp_fun, "a2");
+
+    fun_t *sopf = sf_fun_add (rp_fun);
+
+    sf_nm_add ("replace", CONST_STRING, sopf);
   }
 
   /********************************************* */
@@ -453,9 +600,64 @@ test5 ()
 
   /********************************************* */
 
+  /********************************************* */
+  /* INT METHODS */
+
+  {
+    mod_t *ispeak_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+
+    fun_t *isk_fun = sf_fun_new ("speak", SF_FUN_NATIVE, ispeak_mod,
+                                 nativemethod_type_int_name_speak);
+
+    sf_fun_addarg (isk_fun, "self");
+
+    sf_nm_add ("speak", CONST_INT, isk_fun);
+  }
+
+  {
+    mod_t *itb_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+
+    fun_t *itb_fun = sf_fun_new ("bin", SF_FUN_NATIVE, itb_mod,
+                                 nativemethods_type_int_name_bin);
+
+    sf_fun_addarg (itb_fun, "self");
+
+    sf_nm_add ("bin", CONST_INT, itb_fun);
+  }
+
+  {
+    mod_t *ito_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+
+    fun_t *ito_fun = sf_fun_new ("oct", SF_FUN_NATIVE, ito_mod,
+                                 nativemethods_type_int_name_oct);
+
+    sf_fun_addarg (ito_fun, "self");
+
+    sf_nm_add ("oct", CONST_INT, ito_fun);
+  }
+
+  {
+    mod_t *ith_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+
+    fun_t *ith_fun = sf_fun_new ("hex", SF_FUN_NATIVE, ith_mod,
+                                 nativemethods_type_int_name_hex);
+
+    sf_fun_addarg (ith_fun, "self");
+
+    sf_nm_add ("hex", CONST_INT, ith_fun);
+  }
+
+  /********************************************* */
+
+  sf_module_setparent (m);
+
+  mod_t *mainmod = sf_mod_new (MOD_TYPE_FILE, m);
+  mainmod->body = st;
+  mainmod->body_len = sptr;
+
   // while (1)
   {
-    sf_parser_exec (m);
+    sf_parser_exec (mainmod);
     // mod_t *ml = sf_mod_new (1, NULL);
 
     // obj_t *o = sf_ast_objnew (OBJ_CONST);
@@ -533,7 +735,7 @@ test6 ()
   printf ("LEVELORDER: \n");
   sf_tree_traverse_levelord (t, t6btr);
 
-  sf_tree_free (t);
+  sf_tree_free (t, NULL);
 }
 
 void
@@ -562,6 +764,7 @@ main (int argc, char const *argv[])
   sf_ot_init ();
   sf_fun_init ();
   sf_array_init ();
+  sf_module_init ();
 
 #if !defined(SF_NODEBUG)
   sf_dbg_fledump_init ();
@@ -582,6 +785,7 @@ main (int argc, char const *argv[])
 
   // fclose (SF_DEBUG_DUMP);
   sf_dbg_dumpclose ();
+  sf_module_dest ();
 
   return !printf ("Program ended.\n");
 }

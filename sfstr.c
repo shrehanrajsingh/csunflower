@@ -56,6 +56,23 @@ sf_str_pushchr (sf_charptr *t, const char s)
   (*t)[tl + 1] = '\0';
 }
 
+SF_API void
+sf_str_reverse (sf_charptr *t)
+{
+  char *begin = *t, *end = &((*t)[strlen (*t) - 1]);
+  char tmp;
+
+  while (begin <= end)
+    {
+      tmp = *begin;
+      *begin = *end;
+      *end = tmp;
+
+      begin++;
+      end--;
+    }
+}
+
 SF_API int
 sf_str_eq (sf_charptr _L1, sf_charptr _L2)
 {

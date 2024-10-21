@@ -4,6 +4,7 @@
 #include "function.h"
 #include "header.h"
 #include "llist.h"
+#include "module.h"
 #include "sfclass.h"
 #include "sfmem.h"
 #include "tokenizer.h"
@@ -34,6 +35,8 @@ enum
   STMT_OPEQ = 8, /* +=, -=, *=, /= */
   STMT_CLASS_DECL = 9,
   STMT_WHILE_BLOCK = 10,
+  STMT_IMPORT = 11,
+  STMT_RETURN = 12,
 };
 
 enum
@@ -73,6 +76,7 @@ enum
   OBJ_ARRAY = 2,
   OBJ_CLASS = 3,
   OBJ_CLASSOBJ = 4,
+  OBJ_MODULE = 5,
 };
 
 struct _expr_s;
@@ -176,6 +180,19 @@ struct _stmt_s
       size_t body_count;
 
     } class_decl;
+
+    struct
+    {
+      sf_charptr path;
+      sf_charptr alias;
+
+    } stmt_import;
+
+    struct
+    {
+      struct _expr_s *val;
+
+    } stmt_return;
 
   } v;
 };
@@ -336,6 +353,12 @@ struct _obj_s
       class_t *val;
 
     } o_class, o_cobj;
+
+    struct
+    {
+      sfmodule_t *val;
+
+    } o_mod;
 
   } v;
 

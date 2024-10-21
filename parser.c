@@ -1,8 +1,9 @@
 #include "parser.h"
+#include "nativemethods.h"
 
-llnode_t *eval_expr (mod_t *, expr_t *);
 llnode_t *_sf_fcall (mod_t *, expr_t *);
 llnode_t *_sf_ev_arith (mod_t *, expr_t *);
+llnode_t *_sf_class_construct_noInit (mod_t *, obj_t *, expr_t *);
 llnode_t *_sf_class_construct (mod_t *, obj_t *, expr_t *);
 
 llnode_t *_sf_exec_compare (mod_t *, expr_t *);
@@ -28,6 +29,9 @@ sf_parser_exec (mod_t *mod)
     {
       const stmt_t t = mod->body[i];
       // sf_ast_stmtprint (t);
+
+      if (mod->retv != NULL)
+        goto end;
 
       switch (t.type)
         {
@@ -206,6 +210,8 @@ sf_parser_exec (mod_t *mod)
           {
             expr_t *nam = t.v.class_decl.name;
             char *cname = NULL;
+            llnode_t **inhlst = NULL;
+            size_t ilc = 0;
 
             if (nam->type == EXPR_FUN_CALL)
               {
@@ -214,6 +220,18 @@ sf_parser_exec (mod_t *mod)
                 assert (nam->v.fun_call.name->type == EXPR_VAR);
                 cname = sfstrdup (
                     SFCPTR_TOSTR (nam->v.fun_call.name->v.var.name));
+
+                expr_t *fargs = nam->v.fun_call.args;
+                inhlst = sfmalloc ((ilc = nam->v.fun_call.arg_count)
+                                   * sizeof (*inhlst));
+
+                for (size_t j = 0; j < nam->v.fun_call.arg_count; j++)
+                  {
+                    llnode_t *t = eval_expr (mod, &fargs[j]);
+                    obj_t *to = (obj_t *)t->val;
+
+                    assert (to->type == OBJ_CLASS);
+                  }
               }
 
             else if (nam->type == EXPR_VAR)
@@ -248,6 +266,54 @@ sf_parser_exec (mod_t *mod)
           }
           break;
 
+        case STMT_IMPORT:
+          {
+            assert (t.v.stmt_import.path != NULL
+                    && t.v.stmt_import.alias != NULL);
+
+            char *fconts = sf_module_getfilecontents (t.v.stmt_import.path);
+
+            assert (fconts != NULL && "File not found.\n");
+
+            mod_t *nmd = sf_mod_new (MOD_TYPE_FILE, *sf_module_getparent ());
+
+            tok_t *tk = sf_tokenizer_gen (fconts);
+            size_t sptr = 0;
+            stmt_t *st = sf_ast_stmtgen (tk, &sptr);
+
+            nmd->body = st;
+            nmd->body_len = sptr;
+
+            sf_parser_exec (nmd);
+
+            sfmodule_t *mt = sf_module_new (SF_MD_CODED, nmd);
+
+            sf_module_set_path (mt, t.v.stmt_import.path);
+            sf_module_set_alias (mt, t.v.stmt_import.alias);
+
+            sf_module_add (mt);
+
+            obj_t *v = sf_ast_objnew (OBJ_MODULE);
+            v->v.o_mod.val = mt;
+
+            sf_mod_addVar (mod, mt->alias, sf_ot_addobj (v));
+          }
+          break;
+
+        case STMT_RETURN:
+          {
+            llnode_t *n = eval_expr (mod, t.v.stmt_return.val);
+
+            if (mod->retv != NULL)
+              sf_ll_set_meta_refcount (mod->retv,
+                                       mod->retv->meta.ref_count - 1);
+
+            mod->retv = n;
+            sf_ll_set_meta_refcount (mod->retv, mod->retv->meta.ref_count + 1);
+            goto end;
+          }
+          break;
+
         default:
           break;
         }
@@ -260,7 +326,7 @@ end:
   return (parser_rt){ .i = -1 };
 }
 
-llnode_t *
+SF_API llnode_t *
 eval_expr (mod_t *mod, expr_t *e)
 {
   llnode_t *r = NULL;
@@ -395,6 +461,58 @@ eval_expr (mod_t *mod, expr_t *e)
                           p %= t->len;
 
                           r = t->vals[p];
+                        }
+                        break;
+
+                      default:
+                        break;
+                      }
+                  }
+                  break;
+
+                default:
+                  break;
+                }
+            }
+            break;
+
+          case OBJ_CONST:
+            {
+              switch (name->v.o_const.type)
+                {
+                case CONST_STRING:
+                  {
+                    switch (val->type)
+                      {
+                      case OBJ_CONST:
+                        {
+                          switch (val->v.o_const.type)
+                            {
+                            case CONST_INT:
+                              {
+                                int p = val->v.o_const.v.c_int.v;
+
+                                assert (p > -1
+                                        && p < strlen (SFCPTR_TOSTR (
+                                               name->v.o_const.v.c_string.v)));
+
+                                obj_t *ro = sf_ast_objnew (OBJ_CONST);
+                                ro->v.o_const.type = CONST_STRING;
+                                ro->v.o_const.v.c_string.v
+                                    = sf_str_new_empty ();
+
+                                sf_str_pushchr (
+                                    &ro->v.o_const.v.c_string.v,
+                                    SFCPTR_TOSTR (
+                                        name->v.o_const.v.c_string.v)[p]);
+
+                                r = sf_ot_addobj (ro);
+                              }
+                              break;
+
+                            default:
+                              break;
+                            }
                         }
                         break;
 
@@ -600,7 +718,7 @@ eval_expr (mod_t *mod, expr_t *e)
                    * Thus, l_val in r_val => true
                    * Break the loop and return as bool
                    */
-                  if (l_in_r = _sf_obj_cmp (mod, l_obj, co))
+                  if ((l_in_r = _sf_obj_cmp (mod, l_obj, co)))
                     break;
                 }
             }
@@ -695,6 +813,37 @@ eval_expr (mod_t *mod, expr_t *e)
             }
             break;
 
+          case OBJ_MODULE:
+            {
+              sfmodule_t *md = par_obj->v.o_mod.val;
+
+              switch (vl->type)
+                {
+                case EXPR_VAR:
+                  {
+                    sf_charptr vn = vl->v.var.name;
+                    r = sf_mod_getVar (md->mod, SFCPTR_TOSTR (vn));
+                  }
+                  break;
+
+                default:
+                  break;
+                }
+            }
+            break;
+
+          case OBJ_CONST:
+            {
+              fun_t *f = sf_nm_get (vl->v.var.name, par_obj->v.o_const.type);
+              assert (f->meta.has_id);
+
+              obj_t *fo = sf_ast_objnew (OBJ_FUN);
+              fo->v.o_fun.f = f;
+
+              r = sf_ot_addobj (fo);
+            }
+            break;
+
           default:
             break;
           }
@@ -736,11 +885,11 @@ eval_expr (mod_t *mod, expr_t *e)
       }
       break;
 
-    case EXPR_THIS:
-      {
-        // TODO
-      }
-      break;
+      // case EXPR_THIS:
+      //   {
+      //     // TODO
+      //   }
+      //   break;
 
     case EXPR_CONDITIONAL_EQEQ:
     case EXPR_CONDITIONAL_GT:
@@ -1087,6 +1236,8 @@ _sf_exec_block_if (mod_t *mod, size_t *ip)
               else
                 (*ip)--;
             }
+          else
+            (*ip)--;
         }
     }
 
@@ -1110,21 +1261,21 @@ _sf_exec_block_if (mod_t *mod, size_t *ip)
 
           if (ntok->type == STMT_ELSE_BLOCK)
             {
-              *ip++;
+              (*ip)++;
             }
 
           else if (ntok->type == STMT_ELSEIF_BLOCK)
             {
               do
                 {
-                  *ip++;
+                  (*ip)++;
                 }
               while (*ip < mod->body_len
                      && mod->body[*ip].type == STMT_ELSEIF_BLOCK);
 
               if (*ip < mod->body_len
                   && mod->body[*ip].type == STMT_ELSE_BLOCK)
-                *ip++;
+                (*ip)++;
             }
         }
     }
@@ -1308,6 +1459,39 @@ _sf_fcall (mod_t *mod, expr_t *e)
 }
 
 llnode_t *
+_sf_class_construct_noInit (mod_t *mod, obj_t *o, expr_t *e)
+{
+  class_t *t = o->v.o_class.val;
+  class_t *nobj = sf_class_new (t->name, SF_CLASS_CODED);
+
+  nobj->meta.iscobj = 1;
+  nobj->meta.clref = t;
+  nobj->mod
+      = sf_mod_new (MOD_TYPE_CLASS, (t->mod != NULL ? t->mod->parent : NULL));
+
+  nobj->mod->meta.cref = nobj;
+
+  char **vars = sf_trie_getKeys (t->mod->vtable);
+  mod_t *par_pres = nobj->mod->parent;
+  nobj->mod->parent = NULL;
+
+  for (size_t i = 0; vars[i] != NULL; i++)
+    {
+      sf_mod_addVar (nobj->mod, vars[i], sf_mod_getVar (t->mod, vars[i]));
+      sffree (vars[i]);
+    }
+
+  nobj->mod->parent = par_pres;
+
+  sf_class_add (nobj);
+
+  obj_t *oj = sf_ast_objnew (OBJ_CLASSOBJ);
+  oj->v.o_cobj.val = nobj;
+
+  return sf_ot_addobj (oj);
+}
+
+llnode_t *
 _sf_class_construct (mod_t *mod, obj_t *o, expr_t *e)
 {
   class_t *t = o->v.o_class.val;
@@ -1447,7 +1631,24 @@ _sf_obj_cmp (mod_t *mod, obj_t *o1, obj_t *o2)
     case OBJ_CONST:
       {
         if (o1->v.o_const.type != o2->v.o_const.type)
-          goto end;
+          {
+            if (OBJ_IS_NUMBER (o1) && OBJ_IS_NUMBER (o2))
+              {
+                double d1, d2;
+
+                d1 = o1->v.o_const.type == CONST_INT
+                         ? o1->v.o_const.v.c_int.v
+                         : o1->v.o_const.v.c_float.v;
+
+                d2 = o2->v.o_const.type == CONST_INT
+                         ? o2->v.o_const.v.c_int.v
+                         : o2->v.o_const.v.c_float.v;
+
+                return d1 == d2;
+              }
+
+            goto end;
+          }
 
         switch (o1->v.o_const.type)
           {
@@ -1616,10 +1817,30 @@ _sf_exec_compare (mod_t *mod, expr_t *e)
   return sf_ot_addobj (o_res);
 }
 
+void *
+vcr (void *v)
+{
+  struct _sfa_treetok_s *n = (void *)v;
+
+  struct _sfa_treetok_s *r = (struct _sfa_treetok_s *)sfmalloc (sizeof (*r));
+  r->is_llnode = n->is_llnode;
+  r->is_op = n->is_op;
+  r->node = n->node;
+  r->v = n->v;
+
+  return r;
+}
+
+void
+vcr2 (void *v)
+{
+  sffree (v);
+}
+
 llnode_t *
 _sf_ev_arith (mod_t *m, expr_t *e)
 {
-  tree_t *ac = e->v.e_arith.tree;
+  tree_t *ac = sf_tree_copy_deep (e->v.e_arith.tree, vcr);
   int c = sf_tree_countNodes (ac);
 
   tree_t **nodes = sfmalloc (c * sizeof (*nodes));
@@ -1638,6 +1859,8 @@ _sf_ev_arith (mod_t *m, expr_t *e)
           expr_t *ecpy = nval->v.val;
 
           nval->node = eval_expr (m, ecpy);
+
+          // printf ("%s\n", sf_parser_objRepr (m, nval->node->val));
           sf_ll_set_meta_refcount (nval->node, nval->node->meta.ref_count + 1);
         }
 
@@ -1697,6 +1920,7 @@ _sf_ev_arith (mod_t *m, expr_t *e)
   noneobj->type = OBJ_CONST;
   noneobj->v.o_const.type = CONST_NONE;
   llnode_t *retval = sf_ot_addobj (noneobj); */
+  sf_tree_free (ac, vcr2);
 
   return retval;
 }
@@ -1820,7 +2044,7 @@ sf_parser_objRepr (mod_t *mod, obj_t *obj)
     case OBJ_CLASS:
       {
         class_t *t = obj->v.o_class.val;
-        res = sf_str_new_fromSize (13 + strlen (t->name));
+        res = sf_str_new_fromSize ((13 + strlen (t->name)) * sizeof (char));
 
         sprintf (res, "<class '%s'>", t->name);
       }
@@ -1829,9 +2053,18 @@ sf_parser_objRepr (mod_t *mod, obj_t *obj)
     case OBJ_CLASSOBJ:
       {
         class_t *t = obj->v.o_cobj.val;
-        res = sf_str_new_fromSize (22 + strlen (t->name));
+        res = sf_str_new_fromSize ((22 + strlen (t->name)) * sizeof (char));
 
         sprintf (res, "<class instance '%s'>", t->name);
+      }
+      break;
+
+    case OBJ_MODULE:
+      {
+        res = sf_str_new_fromSize (128 * sizeof (char));
+
+        sprintf (res, "<module '%s' ('%s')>", obj->v.o_mod.val->alias,
+                 obj->v.o_mod.val->path);
       }
       break;
 

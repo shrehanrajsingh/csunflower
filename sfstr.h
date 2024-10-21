@@ -23,6 +23,7 @@ extern "C"
   SF_API void sf_str_pushchr (sf_charptr *_Target, const char _Source);
   SF_API void sf_str_insert (sf_charptr *_Target, int _Index,
                              const char _Source);
+  SF_API void sf_str_reverse (sf_charptr *_Target);
   SF_API void sf_str_resize (sf_charptr *_Target, size_t _Size);
 
   SF_API int sf_str_eq (sf_charptr _L1, sf_charptr _L2);
