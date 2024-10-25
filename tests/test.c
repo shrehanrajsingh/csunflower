@@ -271,6 +271,36 @@ ord_fun_rt (mod_t *mod)
 }
 
 llnode_t *
+super_fun_rt (mod_t *mod)
+{
+  obj_t *a1 = (obj_t *)sf_mod_getVar (mod, "inst")->val;
+  obj_t *a2 = (obj_t *)sf_mod_getVar (mod, "cl")->val;
+
+  assert (a1->type == OBJ_CLASSOBJ
+          && "argument 1 of super () is not a class instance.");
+
+  assert (a2->type == OBJ_CLASS
+          && "argument 2 of super () is not a class object");
+
+  class_t *a1_c = a1->v.o_cobj.val, *a2_c = a2->v.o_class.val;
+
+  for (size_t i = 0; i < a1_c->il_c; i++)
+    {
+      obj_t *c = (obj_t *)a1_c->inh_list[i]->val;
+
+      if (c->v.o_class.val->meta.clref == a2_c)
+        {
+          return a1_c->inh_list[i];
+        }
+    }
+
+  obj_t *r = sf_ast_objnew (OBJ_CONST);
+  r->v.o_const.type = CONST_NONE;
+
+  return sf_ot_addobj (r);
+}
+
+llnode_t *
 nativemethod_type_str_name_operator_plus (mod_t *mod)
 {
   obj_t *self = (obj_t *)sf_mod_getVar (mod, "self")->val;
@@ -535,6 +565,36 @@ test5 ()
     ctr_obj->v.o_fun.f = ctrp;
 
     sf_mod_addVar (m, "ctr", sf_ot_addobj (ctr_obj));
+  }
+
+  /********************************************* */
+
+  /********************************************* */
+  /* super() function */
+
+  {
+    mod_t *super_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+    obj_t *inst_obj = sf_ast_objnew (OBJ_CONST);
+    obj_t *cl_obj = sf_ast_objnew (OBJ_CONST);
+
+    inst_obj->v.o_const.type = CONST_NONE;
+    cl_obj->v.o_const.type = CONST_NONE;
+
+    sf_mod_addVar (super_mod, "inst", sf_ot_addobj (inst_obj));
+    sf_mod_addVar (super_mod, "cl", sf_ot_addobj (cl_obj));
+
+    fun_t *super_fun
+        = sf_fun_new ("super", SF_FUN_NATIVE, super_mod, super_fun_rt);
+
+    sf_fun_addarg (super_fun, "inst");
+    sf_fun_addarg (super_fun, "cl");
+
+    fun_t *sfp = sf_fun_add (super_fun);
+
+    obj_t *sp_obj = sf_ast_objnew (OBJ_FUN);
+    sp_obj->v.o_fun.f = sfp;
+
+    sf_mod_addVar (m, "super", sf_ot_addobj (sp_obj));
   }
 
   /********************************************* */

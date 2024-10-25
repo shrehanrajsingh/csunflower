@@ -2,6 +2,7 @@
 #include "parser.h"
 #include "sfarray.h"
 
+/* forward declarations */
 stmt_t _sf_stmt_vdgen (tok_t *_arr, size_t _idx, size_t *_jumper);
 stmt_t _sf_stmt_opeqgen (tok_t *_arr, size_t _idx, size_t *_jumper);
 stmt_t _sf_stmt_fcgen (tok_t *_arr, size_t _idx, size_t *_jumper);
@@ -14,6 +15,7 @@ stmt_t _sf_stmt_classdeclgen (tok_t *_arr, size_t _idx, size_t *_jumper);
 stmt_t _sf_stmt_whileblockgen (tok_t *_arr, size_t _idx, size_t *_jumper);
 stmt_t _sf_stmt_importgen (tok_t *_arr, size_t _idx, size_t *_jumper);
 stmt_t _sf_stmt_returngen (tok_t *_arr, size_t _idx, size_t *_jumper);
+stmt_t _sf_stmt_withblockgen (tok_t *_arr, size_t _idx, size_t *_jumper);
 
 /**
  * Function returns _arr + _C
@@ -110,7 +112,24 @@ sf_ast_stmtgen (tok_t *arr, size_t *sptr)
                 /* res = sfrealloc (res, (rc + 1) * sizeof (*res));
                 res[rc++] = t; */
 
-                satsr (res, &rc, &rcap, t);
+                int tt = t.v.fun_call.name->type;
+                if (tt == EXPR_MEM_ACCESS || tt == EXPR_FUN_CALL)
+                  {
+                    if (tt == EXPR_FUN_CALL)
+                      res[rc - 1] = t;
+
+                    else
+                      {
+                        expr_t *y = t.v.fun_call.name->v.mem_access.parent;
+
+                        if (y && y->type == EXPR_FUN_CALL)
+                          res[rc - 1] = t;
+                        else
+                          satsr (res, &rc, &rcap, t);
+                      }
+                  }
+                else
+                  satsr (res, &rc, &rcap, t);
               }
           }
           break;
@@ -199,6 +218,13 @@ sf_ast_stmtgen (tok_t *arr, size_t *sptr)
                 else if (sf_str_eq_rCp (cv, "return"))
                   {
                     stmt_t t = _sf_stmt_returngen (arr, i, &i);
+
+                    satsr (res, &rc, &rcap, t);
+                  }
+
+                else if (sf_str_eq_rCp (cv, "with"))
+                  {
+                    stmt_t t = _sf_stmt_withblockgen (arr, i, &i);
 
                     satsr (res, &rc, &rcap, t);
                   }
@@ -1149,11 +1175,15 @@ sf_ast_exprgen (tok_t *arr, size_t len)
                 expr_t *par = sfmalloc (sizeof (*par));
                 *par = res_pres;
 
+                // printf ("%d\n", par->type);
+
                 res.v.mem_access.parent = par;
 
                 expr_t *vl = sfmalloc (sizeof (*vl));
                 // *vl = sf_ast_exprgen (arr + i + 1, len - i - 1);
-                *vl = sf_ast_exprgen (arr + i + 1, 1);
+                *vl = sf_ast_exprgen (arr + i + 1,
+                                      1); /* get only the next token because
+                                             that is the member's name */
 
                 res.v.mem_access.val = vl;
 
@@ -1891,6 +1921,105 @@ _sf_stmt_returngen (tok_t *arr, size_t idx, size_t *jptr)
   return res;
 }
 
+stmt_t
+_sf_stmt_withblockgen (tok_t *arr, size_t idx, size_t *jptr)
+{
+  stmt_t res;
+  res.type = STMT_WITH_BLOCK;
+  res.v.blk_with.val = NULL;
+  res.v.blk_with.alias = NULL;
+  res.v.blk_with.body = NULL;
+  res.v.blk_with.body_count = 0;
+
+  int gb = 0;
+  size_t vei = idx;
+
+  for (size_t i = idx + 1; arr[i].type != TOK_EOF; i++)
+    {
+      tok_t *t = &arr[i];
+
+      if (t->type == TOK_OPERATOR)
+        {
+          if (sf_str_inStr ("({[", t->v.t_op.v))
+            gb++;
+          else if (sf_str_inStr (")}]", t->v.t_op.v))
+            gb--;
+        }
+
+      if (t->type == TOK_NEWLINE && !gb)
+        {
+          vei = i;
+          break;
+        }
+
+      if (t->type == TOK_IDENTIFIER && !gb
+          && sf_str_eq_rCp (t->v.t_ident.v, "as"))
+        {
+          vei = i;
+          break;
+        }
+    }
+
+  assert (vei != idx);
+
+  res.v.blk_with.val = sfmalloc (sizeof (expr_t));
+  *res.v.blk_with.val = sf_ast_exprgen (arr + idx + 1, vei - idx - 1);
+
+  if (arr[vei].type == TOK_IDENTIFIER)
+    {
+      /* has alias */
+      size_t eli = vei;
+      gb = 0;
+
+      for (size_t j = vei + 1; arr[j].type != TOK_EOF; j++)
+        {
+          tok_t *t = &arr[j];
+
+          if (t->type == TOK_OPERATOR)
+            {
+              if (sf_str_inStr ("({[", t->v.t_op.v))
+                gb++;
+              else if (sf_str_inStr (")}]", t->v.t_op.v))
+                gb--;
+            }
+
+          if (t->type == TOK_NEWLINE && !gb)
+            {
+              eli = j;
+              break;
+            }
+        }
+
+      assert (eli != vei);
+      res.v.blk_with.alias = sfmalloc (sizeof (expr_t));
+      *res.v.blk_with.alias = sf_ast_exprgen (arr + vei + 1, eli - vei - 1);
+
+      vei = eli;
+    }
+
+  tok_t *body_end
+      = _sf_stmt_getblkend (arr + vei + 1, _sf_stmt_gettbsp (arr, idx));
+
+  tok_t pres_end = *body_end;
+  *body_end = (tok_t){
+    .type = TOK_EOF,
+  };
+
+  size_t sts = 0;
+  stmt_t *stree = sf_ast_stmtgen (arr + vei + 1, &sts);
+
+  *body_end = pres_end;
+  res.v.blk_with.body = stree;
+  res.v.blk_with.body_count = sts;
+
+  if (jptr != NULL)
+    {
+      *jptr = (body_end - arr) - 1;
+    }
+
+  return res;
+}
+
 size_t
 _sf_stmt_gettbsp (tok_t *arr, size_t idx)
 {
@@ -2501,6 +2630,25 @@ sf_ast_stmtprint (stmt_t s)
       {
         printf ("return: ");
         sf_ast_exprprint (*s.v.stmt_return.val);
+      }
+      break;
+
+    case STMT_WITH_BLOCK:
+      {
+        printf ("with:\nval: ");
+        sf_ast_exprprint (*s.v.blk_with.val);
+
+        printf ("alias: ");
+        if (s.v.blk_with.alias)
+          sf_ast_exprprint (*s.v.blk_with.alias);
+        else
+          printf ("null\n");
+
+        printf ("body (%d): \n", s.v.blk_with.body_count);
+        for (size_t i = 0; i < s.v.blk_with.body_count; i++)
+          {
+            sf_ast_stmtprint (s.v.blk_with.body[i]);
+          }
       }
       break;
 

@@ -34,6 +34,13 @@ struct _mod_s
   llnode_t *retv; // return value of the mod (return value of a function)
   struct _mod_s *parent; // parent mod
 
+  /*
+    This is a reference to object made `.val`
+    in with block,
+    provided there is no `as` clause
+  */
+  llnode_t *wb_gvref;
+
   union
   {
     class_t *cref; // if type == MOD_TYPE_CLASS

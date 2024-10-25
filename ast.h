@@ -37,6 +37,7 @@ enum
   STMT_WHILE_BLOCK = 10,
   STMT_IMPORT = 11,
   STMT_RETURN = 12,
+  STMT_WITH_BLOCK = 13,
 };
 
 enum
@@ -193,6 +194,14 @@ struct _stmt_s
       struct _expr_s *val;
 
     } stmt_return;
+
+    struct
+    {
+      struct _expr_s *val, *alias;
+      struct _stmt_s *body;
+      size_t body_count;
+
+    } blk_with;
 
   } v;
 };

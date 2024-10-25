@@ -3,7 +3,7 @@
 
 llnode_t *_sf_fcall (mod_t *, expr_t *);
 llnode_t *_sf_ev_arith (mod_t *, expr_t *);
-llnode_t *_sf_class_construct_noInit (mod_t *, obj_t *, expr_t *);
+llnode_t *_sf_class_construct_noInit (mod_t *, obj_t *);
 llnode_t *_sf_class_construct (mod_t *, obj_t *, expr_t *);
 
 llnode_t *_sf_exec_compare (mod_t *, expr_t *);
@@ -18,6 +18,7 @@ int _sf_obj_isfalse (mod_t *, obj_t *);
 SF_API void
 sf_parser_init (void)
 {
+  /* empty utility */
 }
 
 SF_API parser_rt
@@ -228,9 +229,7 @@ sf_parser_exec (mod_t *mod)
                 for (size_t j = 0; j < nam->v.fun_call.arg_count; j++)
                   {
                     llnode_t *t = eval_expr (mod, &fargs[j]);
-                    obj_t *to = (obj_t *)t->val;
-
-                    assert (to->type == OBJ_CLASS);
+                    inhlst[j] = t;
                   }
               }
 
@@ -254,6 +253,8 @@ sf_parser_exec (mod_t *mod)
 
             class_t *nt = sf_class_new (cname, SF_CLASS_CODED);
             nt->mod = cmod;
+            nt->inh_list = inhlst;
+            nt->il_c = ilc;
 
             sf_class_add (nt);
 
@@ -311,6 +312,53 @@ sf_parser_exec (mod_t *mod)
             mod->retv = n;
             sf_ll_set_meta_refcount (mod->retv, mod->retv->meta.ref_count + 1);
             goto end;
+          }
+          break;
+
+        case STMT_WITH_BLOCK:
+          {
+            llnode_t *val_ll = eval_expr (mod, t.v.blk_with.val);
+            mod_t *wmod = sf_mod_new (mod->type, NULL);
+
+            if (t.v.blk_with.alias == NULL)
+              {
+                sf_ll_set_meta_refcount (val_ll, val_ll->meta.ref_count + 1);
+                wmod->wb_gvref = val_ll;
+              }
+            else
+              {
+                expr_t *ar = t.v.blk_with.alias;
+                if (ar->type == EXPR_VAR)
+                  {
+                    sf_charptr nref = ar->v.var.name;
+
+                    sf_mod_addVar (wmod, SFCPTR_TOSTR (nref), val_ll);
+                  }
+                else
+                  assert (0 && "case not implemented.");
+              }
+
+            wmod->body = t.v.blk_with.body;
+            wmod->body_len = t.v.blk_with.body_count;
+
+            wmod->parent = mod;
+
+            sf_parser_exec (wmod);
+
+            if (t.v.blk_with.alias == NULL)
+              {
+                sf_ll_set_meta_refcount (val_ll, val_ll->meta.ref_count - 1);
+              }
+
+            if (wmod->retv != NULL)
+              {
+                mod->retv = wmod->retv;
+              }
+
+            // TODO: handle other signals
+
+            wmod->parent = NULL;
+            sf_mod_free (wmod);
           }
           break;
 
@@ -765,7 +813,21 @@ eval_expr (mod_t *mod, expr_t *e)
         expr_t *par = e->v.mem_access.parent;
         expr_t *vl = e->v.mem_access.val;
 
-        llnode_t *par_ll = eval_expr (mod, par);
+        llnode_t *par_ll;
+
+        if (par->type == -1)
+          {
+            mod_t *p = mod;
+            while (p && p->wb_gvref == NULL)
+              p = p->parent;
+
+            assert (!!p);
+            assert (p->wb_gvref != NULL);
+
+            par_ll = p->wb_gvref;
+          }
+        else
+          par_ll = eval_expr (mod, par);
 
         sf_ll_set_meta_refcount (par_ll, par_ll->meta.ref_count + 1);
 
@@ -804,6 +866,19 @@ eval_expr (mod_t *mod, expr_t *e)
                   {
                     sf_charptr vn = vl->v.var.name;
                     r = sf_mod_getVar (cl->mod, SFCPTR_TOSTR (vn));
+
+                    if (r == NULL)
+                      {
+                        /* check inherit list */
+                        for (size_t j = 0; j < cl->il_c; j++)
+                          {
+                            mod_t *cm = ((obj_t *)cl->inh_list[j]->val)
+                                            ->v.o_cobj.val->mod;
+
+                            r = sf_mod_getVar (cm,
+                                               SFCPTR_TOSTR (vl->v.var.name));
+                          }
+                      }
                   }
                   break;
 
@@ -1459,7 +1534,7 @@ _sf_fcall (mod_t *mod, expr_t *e)
 }
 
 llnode_t *
-_sf_class_construct_noInit (mod_t *mod, obj_t *o, expr_t *e)
+_sf_class_construct_noInit (mod_t *mod, obj_t *o)
 {
   class_t *t = o->v.o_class.val;
   class_t *nobj = sf_class_new (t->name, SF_CLASS_CODED);
@@ -1479,6 +1554,18 @@ _sf_class_construct_noInit (mod_t *mod, obj_t *o, expr_t *e)
     {
       sf_mod_addVar (nobj->mod, vars[i], sf_mod_getVar (t->mod, vars[i]));
       sffree (vars[i]);
+    }
+
+  nobj->il_c = t->il_c;
+  nobj->inh_list = sfmalloc (nobj->il_c * sizeof (llnode_t *));
+
+  /* add inherits */
+  for (size_t i = 0; i < t->il_c; i++)
+    {
+      llnode_t *l
+          = _sf_class_construct_noInit (mod, (obj_t *)t->inh_list[i]->val);
+
+      nobj->inh_list[i] = l;
     }
 
   nobj->mod->parent = par_pres;
@@ -1503,6 +1590,18 @@ _sf_class_construct (mod_t *mod, obj_t *o, expr_t *e)
       = sf_mod_new (MOD_TYPE_CLASS, (t->mod != NULL ? t->mod->parent : NULL));
 
   nobj->mod->meta.cref = nobj;
+
+  nobj->il_c = t->il_c;
+  nobj->inh_list = sfmalloc (nobj->il_c * sizeof (llnode_t *));
+
+  /* add inherits */
+  for (size_t i = 0; i < t->il_c; i++)
+    {
+      llnode_t *l
+          = _sf_class_construct_noInit (mod, (obj_t *)t->inh_list[i]->val);
+
+      nobj->inh_list[i] = l;
+    }
 
   char **vars = sf_trie_getKeys (t->mod->vtable);
   mod_t *par_pres = nobj->mod->parent;

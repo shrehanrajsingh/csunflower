@@ -4,15 +4,13 @@ class Animal
 
     fun _init (self, name)
         self.name = name
-    
-    fun test (self)
-        putln ('testing')
 
 class Dog (Animal)
     
     fun _init (self)
         with super (self, Animal)
             ._init ('dog')
+            .life = 15
     
     fun speak (self)
         putln ('Bark')
