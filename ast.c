@@ -2170,14 +2170,21 @@ sf_ast_freeObj (obj_t **obj)
                 kmod->body = f->mod->body;
                 kmod->body_len = f->mod->body_len;
 
-                obj_t *kp = sf_ast_objnew (OBJ_CLASSOBJ);
-                kp->v.o_cobj.val = ct;
+                // obj_t *kp = sf_ast_objnew (OBJ_CLASSOBJ);
+                // kp->v.o_cobj.val = ct;
 
-                sf_mod_addVar (kmod, "self", sf_ot_addobj (kp));
+                // printf ("%d\n", (*obj)->meta.mem_ref->meta.ref_count);
+                sf_ll_set_meta_refcount ((*obj)->meta.mem_ref, 1);
+
+                sf_mod_addVar (kmod, "self", (*obj)->meta.mem_ref);
                 kmod->parent = f->mod->parent;
 
                 sf_parser_exec (kmod);
                 sf_mod_free (kmod);
+
+                // ! CAUTION
+                // Manually reset flags to prevent deallocation again
+                (*obj)->meta.mem_ref->meta.ref_count = 0;
               }
 
             sf_ll_set_meta_refcount (kln, kln->meta.ref_count - 1);

@@ -162,10 +162,11 @@ sf_mod_free (mod_t *mod)
                   kmod->body = f->mod->body;
                   kmod->body_len = f->mod->body_len;
 
-                  obj_t *kp = sf_ast_objnew (OBJ_CLASSOBJ);
-                  kp->v.o_cobj.val = ct;
+                  // obj_t *kp = sf_ast_objnew (OBJ_CLASSOBJ);
+                  // kp->v.o_cobj.val = ct;
 
-                  sf_mod_addVar (kmod, "self", sf_ot_addobj (kp));
+                  // sf_mod_addVar (kmod, "self", sf_ot_addobj (kp));
+                  sf_mod_addVar (kmod, "self", v);
                   kmod->parent = f->mod->parent;
 
                   sf_parser_exec (kmod);
@@ -179,12 +180,6 @@ sf_mod_free (mod_t *mod)
 
   for (int i = mod->vhcount - 1; i >= 0; i--)
     {
-      if (mod->varhist[i][0] == '\0')
-        {
-          sffree (mod->varhist[i]);
-          continue;
-        }
-
       llnode_t *v = sf_trie_getVal (mod->vtable, mod->varhist[i]);
 
       if (v == NULL)

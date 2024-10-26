@@ -27,6 +27,7 @@ SF_API void
 sf_ot_removeobj (llnode_t *node)
 {
   obj_t *p = (obj_t *)node->val;
+  p->meta.mem_ref = node;
   sf_ast_freeObj (&p);
 
   sf_ll_unlink_node (&node);
