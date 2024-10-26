@@ -754,6 +754,7 @@ test5 ()
     }
   sffree (k);
 
+  sf_mod_free (mainmod);
   sf_mod_free (m);
 }
 

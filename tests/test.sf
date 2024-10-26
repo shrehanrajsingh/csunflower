@@ -1,12 +1,12 @@
 class Animal
     name = none
-    life = none
+    life = 0
 
     fun _init (self, name)
         self.name = name
     
-    fun test (self)
-        putln ('testing')
+    fun _kill (self)
+        putln ('Killing Animal')
 
 class Dog (Animal)
     
@@ -19,6 +19,8 @@ class Dog (Animal)
     
     fun getlife (self)
         putln (self.life)
+    
+    fun _kill (self)
+        putln ('Killing dog')
 
 d = Dog ()
-d.speak ()

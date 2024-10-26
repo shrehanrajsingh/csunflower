@@ -86,6 +86,7 @@ sf_class_free (class_t *c)
   //   }
 
   sffree (c->name);
+  sffree (c->inh_list);
 
   // TODO Clear inh_list
 

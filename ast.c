@@ -2150,6 +2150,7 @@ sf_ast_freeObj (obj_t **obj)
     case OBJ_CLASSOBJ:
       {
         class_t *ct = p->v.o_cobj.val;
+
         llnode_t *kln = sf_mod_getVar (ct->mod, "_kill");
         int drop_f = ct->meta.kill_fun_called;
 
@@ -2158,7 +2159,7 @@ sf_ast_freeObj (obj_t **obj)
             sf_ll_set_meta_refcount (kln, kln->meta.ref_count + 1);
             obj_t *kv = (obj_t *)kln->val;
 
-            if (kv->type == OBJ_FUN && !ct->meta.kill_fun_called)
+            if (kv->type == OBJ_FUN && !drop_f)
               {
                 ct->meta.kill_fun_called = 1;
                 fun_t *f = kv->v.o_fun.f;
@@ -2180,6 +2181,11 @@ sf_ast_freeObj (obj_t **obj)
               }
 
             sf_ll_set_meta_refcount (kln, kln->meta.ref_count - 1);
+          }
+
+        for (size_t i = 0; i < ct->il_c; i++)
+          {
+            sf_ll_set_meta_refcount (ct->inh_list[i], 0);
           }
 
         if (!drop_f)

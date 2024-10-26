@@ -16,6 +16,10 @@ enum
   MOD_TYPE_CLASS = 3,
 };
 
+#if !defined(SF_MOD_VH_CAP)
+#define SF_MOD_VH_CAP 128
+#endif
+
 /**
  * @brief Structure representing a mod.
  *
@@ -27,6 +31,10 @@ struct _mod_s
 {
   int type;       // type of the mod
   trie_t *vtable; // variable table
+
+  sf_charptr *varhist; // names (history) of all variables
+  size_t vhcount;      // counter for .varhist
+  size_t vhcap;        // capacity for .varhist
 
   stmt_t *body;    // body of the mod
   size_t body_len; // length of the body
