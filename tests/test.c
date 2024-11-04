@@ -844,8 +844,10 @@ main (int argc, char const *argv[])
   // Code 6: tree test
   TEST (5);
 
-  // fclose (SF_DEBUG_DUMP);
+// fclose (SF_DEBUG_DUMP);
+#if !defined(SF_NODEBUG)
   sf_dbg_dumpclose ();
+#endif
   sf_module_dest ();
 
   return !printf ("Program ended.\n");
