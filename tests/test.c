@@ -455,6 +455,55 @@ nativemethods_type_int_name_hex (mod_t *mod)
   return sf_ot_addobj (res);
 }
 
+llnode_t *
+len_fun_rt (mod_t *mod)
+{
+  obj_t *o = (obj_t *)sf_mod_getVar (mod, "arg")->val;
+
+  int l = 0;
+
+  switch (o->type)
+    {
+    case OBJ_CONST:
+      {
+        switch (o->v.o_const.type)
+          {
+          case CONST_STRING:
+            {
+              l = strlen (SFCPTR_TOSTR (o->v.o_const.v.c_string.v));
+            }
+            break;
+
+          default:
+            {
+              e_printf ("object does not have len property.\n");
+            }
+            break;
+          }
+      }
+      break;
+
+    case OBJ_ARRAY:
+      {
+        array_t *t = o->v.o_array.v;
+        l = t->len;
+      }
+      break;
+
+    default:
+      {
+        e_printf ("object does not have len property.\n");
+      }
+      break;
+    }
+
+  obj_t *n = sf_ast_objnew (OBJ_CONST);
+  n->v.o_const.type = CONST_INT;
+  n->v.o_const.v.c_int.v = l;
+
+  return sf_ot_addobj (n);
+}
+
 void
 test5 ()
 {
@@ -708,6 +757,26 @@ test5 ()
   }
 
   /********************************************* */
+
+  {
+    mod_t *lenfmod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+
+    obj_t *al = sf_ast_objnew (OBJ_CONST);
+    al->v.o_const.type = CONST_STRING;
+    al->v.o_const.v.c_string.v = sf_str_new_empty ();
+
+    sf_mod_addVar (lenfmod, "arg", sf_ot_addobj (al));
+
+    fun_t *f = sf_fun_new ("len", SF_FUN_NATIVE, lenfmod, len_fun_rt);
+    sf_fun_addarg (f, "arg");
+
+    fun_t *rf = sf_fun_add (f);
+
+    obj_t *fo = sf_ast_objnew (OBJ_FUN);
+    fo->v.o_fun.f = rf;
+
+    sf_mod_addVar (m, "len", sf_ot_addobj (fo));
+  }
 
   sf_module_setparent (m);
 
