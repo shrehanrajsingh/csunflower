@@ -666,6 +666,7 @@ test5 ()
     sf_nm_add (SF_OP_OVRLD_PLUS, CONST_STRING, sopf);
   }
 
+  /* ''.replace() */
   {
     mod_t *rp_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
 

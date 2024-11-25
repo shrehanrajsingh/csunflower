@@ -1,14 +1,2 @@
-"Classic Tower of Hanoi example"
-
-fun toh (n, f, a, t)
-    if n == 1
-        putln ("Move disk 1 from " + f + " to " + t)
-        return 0
-    
-    toh (n - 1, f, t, a)
-    put ("Move disk ")
-    put (n)
-    putln (" from " + f + " to " + t)
-    toh (n - 1, a, f, t)
-
-toh (3, 'F', 'A', 'T')
+a = [1, 2, 3, 4, 5]
+putln (a)

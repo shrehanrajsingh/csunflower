@@ -21,7 +21,7 @@ Copy the code in [tests/test.sf](tests/test.sf) and run cmake tests to execute i
 Here is a simple "Hello, World!" program written in Sunflower:
 
 ```sunflower
-print("Hello, World!")
+putln ("Hello, World!")
 ```
 
 ## Sample Tower of Hanoi Program
