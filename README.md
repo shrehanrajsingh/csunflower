@@ -71,4 +71,4 @@ We welcome contributions from the Sunflower community. If you have any bug repor
 
 ## License
 
-Sunflower is released under the MIT License. See the [LICENSE](https://github.com/csunflower/LICENSE) file for more details.
+Sunflower is released under the MIT License. See the [LICENSE](https://github.com/shrehanrajsingh/csunflower/LICENSE) file for more details.
