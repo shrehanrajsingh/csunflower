@@ -25,5 +25,6 @@ add_library(sunflower
     header.h
     nativemethods.h nativemethods.c
     module.h module.c
+    sfmap.h sfmap.c
 )
 

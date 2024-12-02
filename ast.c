@@ -966,6 +966,109 @@ sf_ast_exprgen (tok_t *arr, size_t len)
                   }
               }
 
+            else if (sf_str_eq_rCp (p, "{"))
+              {
+                if (res.type != -1)
+                  {
+                    // Possibly a syntax error
+                    // TODO
+                  }
+
+                int comma_count = 0;
+                int gb = 0;
+                int i_jmp_idx = i;
+
+                for (size_t j = i + 1; j < len; j++)
+                  {
+                    tok_t *d = &arr[j];
+
+                    if (d->type == TOK_OPERATOR)
+                      {
+                        if (*SFCPTR_TOSTR (d->v.t_op.v) == '}' && !gb)
+                          {
+                            i_jmp_idx = j;
+                            break;
+                          }
+
+                        if (*SFCPTR_TOSTR (d->v.t_op.v) == ',' && !gb)
+                          comma_count++;
+
+                        if (sf_str_inStr ("([{", d->v.t_op.v))
+                          gb++;
+
+                        else if (sf_str_inStr (")]}", d->v.t_op.v))
+                          gb--;
+                      }
+                  }
+
+                /*
+                 * Number of key value pairs are either
+                 * equal to comma_count+1 or comma_count
+                 * for those who add a religious ',' at the end of
+                 * the last key-value pair.
+                 * In any case, comma_count+1 is a good measure.
+                 */
+
+                res.type = EXPR_MAP;
+                expr_t *ks = sfmalloc ((comma_count + 1) * sizeof (*ks)),
+                       *vls = sfmalloc ((comma_count + 1) * sizeof (*vls));
+
+                tok_t *buf = sfmalloc ((i_jmp_idx - i) * sizeof (*buf));
+
+                gb = 0;
+                int buf_len = 0;
+                int kvc = 0;
+
+                for (size_t j = i + 1; j < i_jmp_idx; j++)
+                  {
+                    tok_t *d = &arr[j];
+
+                    if (d->type == TOK_NEWLINE || d->type == TOK_SPACE)
+                      continue;
+
+                    if (d->type == TOK_OPERATOR)
+                      {
+                        char *ops = SFCPTR_TOSTR (d->v.t_op.v);
+
+                        if (*ops == ':' && !gb)
+                          {
+                            ks[kvc] = sf_ast_exprgen (buf, buf_len);
+                            buf_len = 0;
+                            continue;
+                          }
+                        else if (*ops == ',' && !gb)
+                          {
+                            vls[kvc++] = sf_ast_exprgen (buf, buf_len);
+                            buf_len = 0;
+                            continue;
+                          }
+
+                        if (sf_str_inStr ("([{", d->v.t_op.v))
+                          gb++;
+
+                        else if (sf_str_inStr (")]}", d->v.t_op.v))
+                          gb--;
+                      }
+
+                    buf[buf_len++] = *d;
+                  }
+
+                if (buf_len)
+                  {
+                    vls[kvc++] = sf_ast_exprgen (buf, buf_len);
+                    buf_len = 0;
+                  }
+
+                res.v.e_map.count = kvc;
+                res.v.e_map.keys = ks;
+                res.v.e_map.vals = vls;
+
+                i = i_jmp_idx;
+                sffree (buf);
+
+                goto l_end;
+              }
+
             else if (sf_str_eq_rCp (p, "("))
               {
                 expr_t pres_res = res;
@@ -2462,6 +2565,21 @@ sf_ast_exprprint (expr_t e)
     case EXPR_THIS:
       {
         printf ("expr_this\n");
+      }
+      break;
+
+    case EXPR_MAP:
+      {
+        printf ("expr_map\n");
+
+        for (size_t i = 0; i < e.v.e_map.count; i++)
+          {
+            printf ("key %d\n", i);
+            sf_ast_exprprint (e.v.e_map.keys[i]);
+
+            printf ("val %d\n", i);
+            sf_ast_exprprint (e.v.e_map.vals[i]);
+          }
       }
       break;
 

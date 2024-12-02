@@ -481,6 +481,38 @@ eval_expr (mod_t *mod, expr_t *e)
       }
       break;
 
+    case EXPR_MAP:
+      {
+        map_t *t = sf_map_new ();
+
+        for (size_t j = 0; j < e->v.e_map.count; j++)
+          {
+            llnode_t *kl = eval_expr (mod, &e->v.e_map.keys[j]);
+            obj_t *kobj = (obj_t *)kl->val;
+
+            if (kobj->type != OBJ_CONST
+                || (kobj->v.o_const.type != CONST_STRING))
+              {
+                e_printf ("key must be a string\n");
+                exit (1);
+              }
+
+            llnode_t *vl = eval_expr (mod, &e->v.e_map.vals[j]);
+
+            // printf ("%s %s\n", sf_parser_objRepr (mod, kobj),
+            //         sf_parser_objRepr (mod, (obj_t *)vl->val));
+
+            sf_ll_set_meta_refcount (vl, vl->meta.ref_count + 1);
+            sf_map_addKeyVal (t, kobj->v.o_const.v.c_string.v, vl);
+          }
+
+        obj_t *o = sf_ast_objnew (OBJ_MAP);
+        o->v.o_map.v = sf_map_add (t);
+
+        r = sf_ot_addobj (o);
+      }
+      break;
+
     case EXPR_IDX_ACCESS:
       {
         obj_t *name = (obj_t *)eval_expr (mod, e->v.e_idx_access.name)->val;
@@ -2137,6 +2169,48 @@ sf_parser_objRepr (mod_t *mod, obj_t *obj)
           }
 
         sf_str_push (&res, "]");
+      }
+      break;
+
+    case OBJ_MAP:
+      {
+        map_t *t = obj->v.o_map.v;
+        assert (t != NULL);
+
+        res = sf_str_new_fromStr ("{");
+
+        char **skeys = sf_trie_getKeys (t->t);
+
+        for (size_t i = 0; skeys[i] != NULL; i++)
+          {
+            obj_t *ko
+                = (obj_t *)((llnode_t *)sf_trie_getVal (t->t, skeys[i]))->val;
+
+            char *p = sf_parser_objRepr (mod, ko);
+
+            sf_str_pushchr (&res, '\'');
+            sf_str_push (&res, skeys[i]);
+
+            if (ko->type == OBJ_CONST && ko->v.o_const.type == CONST_STRING)
+              sf_str_push (&res, "': '");
+            else
+              sf_str_push (&res, "': ");
+
+            sf_str_push (&res, p);
+
+            if (ko->type == OBJ_CONST && ko->v.o_const.type == CONST_STRING)
+              sf_str_push (&res, "'");
+
+            sffree (p);
+
+            if (skeys[i + 1] != NULL)
+              sf_str_push (&res, ", ");
+
+            sffree (skeys[i]);
+          }
+
+        sf_str_push (&res, "}");
+        sffree (skeys);
       }
       break;
 

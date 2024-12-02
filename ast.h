@@ -59,6 +59,7 @@ enum
   EXPR_ARITHMETIC = 14,
   EXPR_MEM_ACCESS = 15,
   EXPR_THIS = 16,
+  EXPR_MAP = 17,
 };
 
 enum // Used for both constant types for expr and obj_t
@@ -78,10 +79,12 @@ enum
   OBJ_CLASS = 3,
   OBJ_CLASSOBJ = 4,
   OBJ_MODULE = 5,
+  OBJ_MAP = 6,
 };
 
 struct _expr_s;
 struct _sf_array_s;
+struct _sf_map_s;
 
 struct _stmt_s
 {
@@ -334,6 +337,13 @@ struct _expr_s
 
     } mem_access;
 
+    struct
+    {
+      struct _expr_s *keys, *vals;
+      size_t count;
+
+    } e_map;
+
   } v;
 };
 
@@ -356,6 +366,12 @@ struct _obj_s
       struct _sf_array_s *v;
 
     } o_array;
+
+    struct
+    {
+      struct _sf_map_s *v;
+
+    } o_map;
 
     struct
     {
