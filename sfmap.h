@@ -34,6 +34,8 @@ extern "C"
 
   SF_API void sf_map_addKeyVal (map_t *_Map, sf_charptr _Name, llnode_t *_Val);
 
+  SF_API void *sf_map_getVal (map_t *_Map, sf_charptr _V);
+
   SF_API map_t *sf_map_add (map_t *_Map);
 
   SF_API void sf_map_free (map_t *_Map);

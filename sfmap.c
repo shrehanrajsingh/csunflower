@@ -29,6 +29,12 @@ sf_map_addKeyVal (map_t *m, sf_charptr n, llnode_t *v)
   sf_trie_add (m->t, SFCPTR_TOSTR (n), v);
 }
 
+SF_API void *
+sf_map_getVal (map_t *m, sf_charptr v)
+{
+  return sf_trie_getVal (m->t, (char *)SFCPTR_TOSTR (v));
+}
+
 SF_API map_t *
 sf_map_add (map_t *m)
 {
@@ -74,6 +80,5 @@ sf_map_free (map_t *m)
   sffree (skeys);
 
   sf_trie_free (m->t);
-
   sffree (m);
 }

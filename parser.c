@@ -86,6 +86,78 @@ sf_parser_exec (mod_t *mod)
                 }
                 break;
 
+              case EXPR_IDX_ACCESS:
+                {
+                  llnode_t *nam = eval_expr (mod, tvn->v.e_idx_access.name);
+                  llnode_t *idx = eval_expr (mod, tvn->v.e_idx_access.val);
+
+                  sf_ll_set_meta_refcount (nam, nam->meta.ref_count + 1);
+                  sf_ll_set_meta_refcount (idx, idx->meta.ref_count + 1);
+
+                  obj_t *o_nam = (obj_t *)nam->val;
+                  obj_t *o_idx = (obj_t *)idx->val;
+
+                  switch (o_nam->type)
+                    {
+                    case OBJ_ARRAY:
+                      {
+                        array_t *t = o_nam->v.o_array.v;
+
+                        assert (o_idx->type == OBJ_CONST
+                                && o_idx->v.o_const.type == CONST_INT);
+
+                        int vidx = o_idx->v.o_const.v.c_int.v;
+
+                        while (vidx < 0)
+                          vidx += t->len;
+
+                        if (vidx >= t->len)
+                          {
+                            e_printf ("array index out of bounds.\tLength: "
+                                      "%d, accessing element %d\n",
+                                      t->len, vidx);
+                            exit (1);
+                          }
+
+                        llnode_t *prev_idx = t->vals[vidx];
+                        sf_ll_set_meta_refcount (prev_idx,
+                                                 prev_idx->meta.ref_count - 1);
+
+                        sf_ll_set_meta_refcount (val_eval,
+                                                 val_eval->meta.ref_count + 1);
+                        t->vals[vidx] = val_eval;
+                      }
+                      break;
+
+                    case OBJ_MAP:
+                      {
+                        map_t *m = o_nam->v.o_map.v;
+                        assert (o_idx->type == OBJ_CONST
+                                && o_idx->v.o_const.type == CONST_STRING);
+
+                        sf_charptr p = o_idx->v.o_const.v.c_string.v;
+
+                        llnode_t *prev_v = sf_map_getVal (m, p);
+
+                        if (prev_v != NULL)
+                          sf_ll_set_meta_refcount (prev_v,
+                                                   prev_v->meta.ref_count - 1);
+
+                        sf_ll_set_meta_refcount (val_eval,
+                                                 val_eval->meta.ref_count + 1);
+                        sf_map_addKeyVal (m, p, val_eval);
+                      }
+                      break;
+
+                    default:
+                      break;
+                    }
+
+                  sf_ll_set_meta_refcount (nam, nam->meta.ref_count - 1);
+                  sf_ll_set_meta_refcount (idx, idx->meta.ref_count - 1);
+                }
+                break;
+
               default:
                 break;
               }
@@ -488,6 +560,7 @@ eval_expr (mod_t *mod, expr_t *e)
         for (size_t j = 0; j < e->v.e_map.count; j++)
           {
             llnode_t *kl = eval_expr (mod, &e->v.e_map.keys[j]);
+            sf_ll_set_meta_refcount (kl, kl->meta.ref_count + 1);
             obj_t *kobj = (obj_t *)kl->val;
 
             if (kobj->type != OBJ_CONST
@@ -504,6 +577,7 @@ eval_expr (mod_t *mod, expr_t *e)
 
             sf_ll_set_meta_refcount (vl, vl->meta.ref_count + 1);
             sf_map_addKeyVal (t, kobj->v.o_const.v.c_string.v, vl);
+            sf_ll_set_meta_refcount (kl, kl->meta.ref_count - 1);
           }
 
         obj_t *o = sf_ast_objnew (OBJ_MAP);
@@ -553,6 +627,18 @@ eval_expr (mod_t *mod, expr_t *e)
                 default:
                   break;
                 }
+            }
+            break;
+
+          case OBJ_MAP:
+            {
+              map_t *m = name->v.o_map.v;
+
+              assert (val->type == OBJ_CONST
+                      && val->v.o_const.type == CONST_STRING);
+
+              r = (llnode_t *)sf_map_getVal (m, val->v.o_const.v.c_string.v);
+              assert (r != NULL && "map does not contain key.");
             }
             break;
 

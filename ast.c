@@ -2222,6 +2222,12 @@ sf_ast_freeObj (obj_t **obj)
       }
       break;
 
+    case OBJ_MAP:
+      {
+        sf_map_free (p->v.o_map.v);
+      }
+      break;
+
     case OBJ_FUN:
       {
         sf_fun_free (p->v.o_fun.f);
