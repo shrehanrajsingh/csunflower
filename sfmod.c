@@ -30,6 +30,8 @@ sf_mod_addVar (mod_t *mod, char *name, llnode_t *ref)
   llnode_t *o = sf_mod_getVar (mod, name);
   mod->parent = par_pres;
 
+  sf_ll_set_meta_refcount (ref, ref->meta.ref_count + 2);
+
   if (l != NULL)
     {
       if (o != NULL)
@@ -74,8 +76,12 @@ sf_mod_addVar (mod_t *mod, char *name, llnode_t *ref)
 #endif
 
   sf_trie_add (mod->vtable, name, (void *)ref);
-  sf_ll_set_meta_refcount (ref, ref->meta.ref_count + 1);
 
+  /**
+   * We set refcount to +2 previously
+   * so now we decrease it by 1 to maintain refcount
+   */
+  sf_ll_set_meta_refcount (ref, ref->meta.ref_count - 1);
   // printf ("%s %d %d\n", name, ref->meta.ref_count, l == NULL);
 
   return ref;

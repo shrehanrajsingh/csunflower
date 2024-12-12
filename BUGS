@@ -27,3 +27,47 @@ a.add (2)
 a.add (3)
 -----
 Remarks: Kill function is not called at the end of program
+
+#2: RESOLVED
+Had some problem where accessing obj.next.next would result
+in a permanent increment in obj's ref_count
+
+class Node1
+    v = none
+    next = none
+
+    fun _init (this, a)
+        this.v = a
+        this.next = none
+
+    fun printv (this)
+        putln (this.v)
+
+class Node2
+    v = none
+    next = none
+
+    fun _init (this, a)
+        this.v = a
+        this.next = none
+
+    fun printv (this)
+        putln (this.v)
+
+class Node3
+    v = none
+    next = none
+
+    fun _init (this, a)
+        this.v = a
+        this.next = none
+
+    fun printv (this)
+        putln (this.v)
+
+obj = Node1 (1)
+prc(obj)
+obj.next = Node2 (2)
+prc(obj)
+obj.next.next = Node3 (3)
+prc(obj)

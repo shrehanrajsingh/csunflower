@@ -1,0 +1,12 @@
+a = [0, 2, 3]
+a[0] = 1
+putln (a)
+
+b = {
+    'name': 'Shrehan',
+    'age': 18,
+    'dob': 19072006
+}
+b['name'] = 'Shrehan Raj Singh'
+
+putln (b)

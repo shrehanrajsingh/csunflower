@@ -56,6 +56,9 @@ sf_parser_exec (mod_t *mod)
                   llnode_t *pl = eval_expr (mod, tvn->v.mem_access.parent);
                   obj_t *pl_o = (obj_t *)pl->val;
 
+                  // if (mod->parent->parent == NULL)
+                  //   printf ("%s\n", sf_parser_objRepr (mod, pl_o));
+
                   switch (pl_o->type)
                     {
                     case OBJ_CLASSOBJ:
@@ -82,6 +85,23 @@ sf_parser_exec (mod_t *mod)
 
                     default:
                       break;
+                    }
+
+                  obj_t *po = pl_o;
+
+                l1:
+                  if (po->meta.pa_size)
+                    {
+                      llnode_t *pol = po->meta.passargs[0]->meta.mem_ref;
+                      sf_ll_set_meta_refcount (pol, pol->meta.ref_count - 1);
+
+                      obj_t *pres_po = po->meta.passargs[0];
+                      po->meta.pa_size = 0;
+                      sffree (po->meta.passargs);
+                      po->meta.passargs = NULL;
+
+                      po = pres_po; /* pa_size is atmost 1 */
+                      goto l1;
                     }
                 }
                 break;
@@ -952,6 +972,9 @@ eval_expr (mod_t *mod, expr_t *e)
         obj_t *par_obj = (obj_t *)par_ll->val;
         assert (par_obj != NULL);
 
+        // if (!mod->parent->parent)
+        //   printf ("%s\n", sf_parser_objRepr (mod, par_obj));
+
         switch (par_obj->type)
           {
           case OBJ_CLASS:
@@ -1044,15 +1067,21 @@ eval_expr (mod_t *mod, expr_t *e)
         if (r != NULL)
           {
             obj_t *rv = (obj_t *)r->val;
+            assert (rv->meta.mem_ref == r);
+            // if (!mod->parent->parent)
+            //   printf ("%s\n", sf_parser_objRepr (mod, rv));
 
-            if (rv->meta.passargs != NULL)
+            if (rv->meta.pa_size)
               /*rv->meta.passargs = sfrealloc (
                   rv->meta.passargs,
                   (rv->meta.pa_size + 1) * sizeof (*rv->meta.passargs));*/
               {
+                // if (!mod->parent->parent)
+                //   here;
                 for (size_t i = 0; i < rv->meta.pa_size; i++)
                   {
                     obj_t *cr = rv->meta.passargs[i];
+                    // printf ("[%s]\n", sf_parser_objRepr (mod, cr));
 
                     if (cr->meta.mem_ref != NULL)
                       {
@@ -1070,6 +1099,10 @@ eval_expr (mod_t *mod, expr_t *e)
 
             rv->meta.passargs[rv->meta.pa_size++] = par_obj;
             par_obj->meta.mem_ref = par_ll;
+
+            // if (!mod->parent->parent)
+            // printf ("%s %d\n", sf_parser_objRepr (mod, par_obj),
+            //         par_ll->meta.ref_count);
 
             sf_ll_set_meta_refcount (par_ll, par_ll->meta.ref_count + 1);
           }

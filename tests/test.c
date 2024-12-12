@@ -504,6 +504,20 @@ len_fun_rt (mod_t *mod)
   return sf_ot_addobj (n);
 }
 
+llnode_t *
+dbg_prntrc_rt (mod_t *mod)
+{
+  llnode_t *l = sf_mod_getVar (mod, "obj");
+  printf (
+      "ref_count: %d, pa_size: %d (without accounting for arg in prc(arg))\n",
+      l->meta.ref_count - 1, ((obj_t *)l->val)->meta.pa_size);
+
+  obj_t *n = sf_ast_objnew (OBJ_CONST);
+  n->v.o_const.type = CONST_NONE;
+
+  return sf_ot_addobj (n);
+}
+
 void
 test5 ()
 {
@@ -777,6 +791,27 @@ test5 ()
     fo->v.o_fun.f = rf;
 
     sf_mod_addVar (m, "len", sf_ot_addobj (fo));
+  }
+
+  {
+    // dbg_prntrc_rt
+    mod_t *dbg1 = sf_mod_new (MOD_TYPE_FUNC, NULL);
+
+    obj_t *al = sf_ast_objnew (OBJ_CONST);
+    al->v.o_const.type = CONST_STRING;
+    al->v.o_const.v.c_string.v = sf_str_new_empty ();
+
+    sf_mod_addVar (dbg1, "obj", sf_ot_addobj (al));
+
+    fun_t *f = sf_fun_new ("prc", SF_FUN_NATIVE, dbg1, dbg_prntrc_rt);
+    sf_fun_addarg (f, "obj");
+
+    fun_t *rf = sf_fun_add (f);
+
+    obj_t *fo = sf_ast_objnew (OBJ_FUN);
+    fo->v.o_fun.f = rf;
+
+    sf_mod_addVar (m, "prc", sf_ot_addobj (fo));
   }
 
   sf_module_setparent (m);

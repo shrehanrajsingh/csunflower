@@ -2,11 +2,11 @@ class Node
     v = none
     next = none
 
-    fun _init (a)
-        this.v = a
+    fun _init (self, a)
+        self.v = a
 
-    fun printv ()
-        putln (this.v)
+    fun printv (self)
+        putln (self.v)
 
 obj = Node (1)
 putln(obj.v)
