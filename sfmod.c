@@ -30,7 +30,9 @@ sf_mod_addVar (mod_t *mod, char *name, llnode_t *ref)
   llnode_t *o = sf_mod_getVar (mod, name);
   mod->parent = par_pres;
 
-  sf_ll_set_meta_refcount (ref, ref->meta.ref_count + 2);
+  sf_ll_set_meta_refcount (ref, ref->meta.ref_count + 1);
+  // if (mod->parent && !mod->parent->parent)
+  //   printf ("%d\n", ref->meta.ref_count);
 
   if (l != NULL)
     {
@@ -80,8 +82,10 @@ sf_mod_addVar (mod_t *mod, char *name, llnode_t *ref)
   /**
    * We set refcount to +2 previously
    * so now we decrease it by 1 to maintain refcount
+   * FIXED
+   * DO NOT UNCOMMENT NOW
    */
-  sf_ll_set_meta_refcount (ref, ref->meta.ref_count - 1);
+  // sf_ll_set_meta_refcount (ref, ref->meta.ref_count - 1);
   // printf ("%s %d %d\n", name, ref->meta.ref_count, l == NULL);
 
   return ref;
@@ -110,27 +114,27 @@ sf_mod_free (mod_t *mod)
   // mod_t *mpres = mod->parent;
   // mod->parent = NULL;
 
-  for (int i = mod->vhcount - 1; i >= 0; i--)
-    {
-      llnode_t *v = sf_trie_getVal (mod->vtable, mod->varhist[i]);
+  // for (int i = mod->vhcount - 1; i >= 0; i--)
+  //   {
+  //     llnode_t *v = sf_trie_getVal (mod->vtable, mod->varhist[i]);
 
-      if (v == NULL)
-        continue;
+  //     if (v == NULL)
+  //       continue;
 
-      obj_t *vo = (obj_t *)v->val;
-      if (vo->meta.pa_size > 0)
-        {
-          for (size_t i = 0; i < vo->meta.pa_size; i++)
-            {
-              llnode_t *t = vo->meta.passargs[i]->meta.mem_ref;
-              sf_ll_set_meta_refcount (t, t->meta.ref_count - 1);
-            }
+  //     // obj_t *vo = (obj_t *)v->val;
+  //     // if (vo->meta.pa_size > 0)
+  //     //   {
+  //     //     for (size_t i = 0; i < vo->meta.pa_size; i++)
+  //     //       {
+  //     //         llnode_t *t = vo->meta.passargs[i]->meta.mem_ref;
+  //     //         sf_ll_set_meta_refcount (t, t->meta.ref_count - 1);
+  //     //       }
 
-          sffree (vo->meta.passargs);
-          vo->meta.passargs = NULL;
-          vo->meta.pa_size = 0;
-        }
-    }
+  //     //     sffree (vo->meta.passargs);
+  //     //     vo->meta.passargs = NULL;
+  //     //     vo->meta.pa_size = 0;
+  //     //   }
+  //   }
 
   // Call _kill on all classes before destroying any objects
   for (int i = mod->vhcount - 1; i >= 0; i--)
@@ -150,6 +154,7 @@ sf_mod_free (mod_t *mod)
           class_t *ct = vo->v.o_cobj.val;
 
           llnode_t *kln = sf_mod_getVar (ct->mod, "_kill");
+          // printf ("%d\n", kln == NULL);
           int drop_f = ct->meta.kill_fun_called;
 
           if (kln != NULL)
@@ -180,6 +185,12 @@ sf_mod_free (mod_t *mod)
                 }
 
               sf_ll_set_meta_refcount (kln, kln->meta.ref_count - 1);
+            }
+
+          if (vo->v.o_fun.uses_self)
+            {
+              llnode_t *t = vo->v.o_fun.selfarg;
+              sf_ll_set_meta_refcount (t, t->meta.ref_count - 1);
             }
         }
     }

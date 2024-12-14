@@ -40,6 +40,25 @@ sf_parser_exec (mod_t *mod)
           {
             llnode_t *val_eval = eval_expr (mod, t.v.var_decl.val);
             expr_t *tvn = t.v.var_decl.name;
+            obj_t *vo = (obj_t *)val_eval->val;
+
+            // if (vo->type != OBJ_FUN)
+            //   {
+            //   l2:
+            //     if (vo->meta.pa_size)
+            //       {
+            //         obj_t *co = vo->meta.passargs[0];
+            //         sf_ll_set_meta_refcount (co->meta.mem_ref,
+            //                                  co->meta.mem_ref->meta.ref_count
+            //                                      - 1);
+
+            //         sffree (vo->meta.passargs);
+            //         vo->meta.pa_size = 0;
+            //         vo = co;
+
+            //         goto l2;
+            //       }
+            //   }
 
             switch (tvn->type)
               {
@@ -89,20 +108,21 @@ sf_parser_exec (mod_t *mod)
 
                   obj_t *po = pl_o;
 
-                l1:
-                  if (po->meta.pa_size)
-                    {
-                      llnode_t *pol = po->meta.passargs[0]->meta.mem_ref;
-                      sf_ll_set_meta_refcount (pol, pol->meta.ref_count - 1);
+                  // l1:
+                  //   if (po->meta.pa_size)
+                  //     {
+                  //       llnode_t *pol = po->meta.passargs[0]->meta.mem_ref;
+                  //       sf_ll_set_meta_refcount (pol, pol->meta.ref_count -
+                  //       1);
 
-                      obj_t *pres_po = po->meta.passargs[0];
-                      po->meta.pa_size = 0;
-                      sffree (po->meta.passargs);
-                      po->meta.passargs = NULL;
+                  //       obj_t *pres_po = po->meta.passargs[0];
+                  //       po->meta.pa_size = 0;
+                  //       sffree (po->meta.passargs);
+                  //       po->meta.passargs = NULL;
 
-                      po = pres_po; /* pa_size is atmost 1 */
-                      goto l1;
-                    }
+                  //       po = pres_po; /* pa_size is atmost 1 */
+                  //       goto l1;
+                  //     }
                 }
                 break;
 
@@ -195,6 +215,7 @@ sf_parser_exec (mod_t *mod)
                                } };
 
             llnode_t *r = _sf_fcall (mod, mke_p);
+            obj_t *ro = (obj_t *)r->val;
 
             // assert (r != NULL);
             // printf ("%d\n", r->meta.ref_count);
@@ -261,6 +282,16 @@ sf_parser_exec (mod_t *mod)
 
                 obj_t *ov = sf_ast_objnew (OBJ_FUN);
                 ov->v.o_fun.f = nf;
+
+                if (mod->type == MOD_TYPE_CLASS)
+                  {
+                    ov->v.o_fun.uses_self = 1;
+
+                    /*
+                      selfarg will be used with class objects.
+                    */
+                    ov->v.o_fun.selfarg = NULL;
+                  }
 
                 sf_mod_addVar (mod, fname, sf_ot_addobj (ov));
               }
@@ -396,6 +427,26 @@ sf_parser_exec (mod_t *mod)
         case STMT_RETURN:
           {
             llnode_t *n = eval_expr (mod, t.v.stmt_return.val);
+            // printf ("%d\n", ((obj_t *)n->val)->meta.pa_size);
+            obj_t *no = (obj_t *)n->val;
+
+            // if (no->type != OBJ_FUN)
+            //   {
+            //   l4:
+            //     if (no->meta.pa_size)
+            //       {
+            //         obj_t *co = no->meta.passargs[0];
+            //         sf_ll_set_meta_refcount (co->meta.mem_ref,
+            //                                  co->meta.mem_ref->meta.ref_count
+            //                                      - 1);
+
+            //         sffree (no->meta.passargs);
+            //         no->meta.pa_size = 0;
+            //         no = co;
+
+            //         goto l4;
+            //       }
+            //   }
 
             if (mod->retv != NULL)
               sf_ll_set_meta_refcount (mod->retv,
@@ -971,6 +1022,7 @@ eval_expr (mod_t *mod, expr_t *e)
 
         obj_t *par_obj = (obj_t *)par_ll->val;
         assert (par_obj != NULL);
+        assert (par_obj->meta.mem_ref == par_ll);
 
         // if (!mod->parent->parent)
         //   printf ("%s\n", sf_parser_objRepr (mod, par_obj));
@@ -1068,43 +1120,57 @@ eval_expr (mod_t *mod, expr_t *e)
           {
             obj_t *rv = (obj_t *)r->val;
             assert (rv->meta.mem_ref == r);
+
+            // rv->meta.passargs
+            //     = sfrealloc (rv->meta.passargs, rv->meta.pa_size + 1);
+            // rv->meta.passargs[rv->meta.pa_size++] = par_obj;
+
             // if (!mod->parent->parent)
             //   printf ("%s\n", sf_parser_objRepr (mod, rv));
 
-            if (rv->meta.pa_size)
-              /*rv->meta.passargs = sfrealloc (
-                  rv->meta.passargs,
-                  (rv->meta.pa_size + 1) * sizeof (*rv->meta.passargs));*/
-              {
-                // if (!mod->parent->parent)
-                //   here;
-                for (size_t i = 0; i < rv->meta.pa_size; i++)
-                  {
-                    obj_t *cr = rv->meta.passargs[i];
-                    // printf ("[%s]\n", sf_parser_objRepr (mod, cr));
+            // if (rv->meta.pa_size)
+            //   /*rv->meta.passargs = sfrealloc (
+            //       rv->meta.passargs,
+            //       (rv->meta.pa_size + 1) * sizeof (*rv->meta.passargs));*/
+            //   {
+            //     // if (!mod->parent->parent)
+            //     //   here;
+            //     for (size_t i = 0; i < rv->meta.pa_size; i++)
+            //       {
+            //         obj_t *cr = rv->meta.passargs[i];
+            //         // printf ("[%s]\n", sf_parser_objRepr (mod, cr));
 
-                    if (cr->meta.mem_ref != NULL)
-                      {
-                        sf_ll_set_meta_refcount (
-                            cr->meta.mem_ref,
-                            cr->meta.mem_ref->meta.ref_count - 1);
-                      }
-                  }
+            //         if (cr->meta.mem_ref != NULL)
+            //           {
+            //             sf_ll_set_meta_refcount (
+            //                 cr->meta.mem_ref,
+            //                 cr->meta.mem_ref->meta.ref_count - 1);
+            //           }
+            //       }
 
-                sffree (rv->meta.passargs);
-                rv->meta.pa_size = 0;
-              }
+            //     sffree (rv->meta.passargs);
+            //     rv->meta.pa_size = 0;
+            //   }
             // else
-            rv->meta.passargs = sfmalloc (sizeof (*rv->meta.passargs));
 
-            rv->meta.passargs[rv->meta.pa_size++] = par_obj;
-            par_obj->meta.mem_ref = par_ll;
+            // if (!rv->meta.pa_size)
+            //   {
+            //     if (rv->type == OBJ_FUN)
+            //       {
+            //         rv->meta.passargs = sfmalloc (sizeof
+            //         (*rv->meta.passargs));
 
-            // if (!mod->parent->parent)
-            // printf ("%s %d\n", sf_parser_objRepr (mod, par_obj),
-            //         par_ll->meta.ref_count);
+            //         rv->meta.passargs[rv->meta.pa_size++] = par_obj;
+            //         par_obj->meta.mem_ref = par_ll;
 
-            sf_ll_set_meta_refcount (par_ll, par_ll->meta.ref_count + 1);
+            //         // if (!mod->parent->parent)
+            //         // printf ("%s %d\n", sf_parser_objRepr (mod, par_obj),
+            //         //         par_ll->meta.ref_count);
+
+            //         sf_ll_set_meta_refcount (par_ll,
+            //                                  par_ll->meta.ref_count + 1);
+            //       }
+            //   }
           }
 
         sf_ll_set_meta_refcount (par_ll, par_ll->meta.ref_count - 1);
@@ -1539,16 +1605,26 @@ _sf_fcall (mod_t *mod, expr_t *e)
 
             // printf ("(%d %d)\n", fn->argc,
             //         fref->meta.pa_size + e->v.fun_call.arg_count);
-            assert (fn->argc == fref->meta.pa_size + e->v.fun_call.arg_count);
+            // assert (fn->argc == fref->meta.pa_size +
+            // e->v.fun_call.arg_count);
 
-            for (size_t j = 0; j < fref->meta.pa_size; j++)
+            assert (fn->argc
+                    == e->v.fun_call.arg_count + fref->v.o_fun.uses_self);
+
+            // for (size_t j = 0; j < fref->meta.pa_size; j++)
+            //   {
+            //     assert (fref->meta.passargs[j]->meta.mem_ref != NULL);
+            //     sf_mod_addVar (nmod, fn->args[j],
+            //                    fref->meta.passargs[j]->meta.mem_ref);
+            //   }
+
+            if (fref->v.o_fun.uses_self)
               {
-                assert (fref->meta.passargs[j]->meta.mem_ref != NULL);
-                sf_mod_addVar (nmod, fn->args[j],
-                               fref->meta.passargs[j]->meta.mem_ref);
+                sf_mod_addVar (nmod, fn->args[0], fref->v.o_fun.selfarg);
               }
 
-            for (size_t j = 0; j < e->v.fun_call.arg_count; j++)
+            for (size_t j = fref->v.o_fun.uses_self;
+                 j < e->v.fun_call.arg_count; j++)
               {
                 // expr_t *ee = sfmalloc (sizeof (*ee));
                 // *ee = e->v.fun_call.args[j];
@@ -1558,7 +1634,8 @@ _sf_fcall (mod_t *mod, expr_t *e)
                 // sffree (ee);
                 // printf ("%s\n", fn->args[j]);
                 // printf ("%d\n", on->meta.ref_count);
-                sf_mod_addVar (nmod, fn->args[j + fref->meta.pa_size], on);
+                sf_mod_addVar (nmod, fn->args[j + fref->v.o_fun.uses_self],
+                               on);
               }
 
             nmod->parent = fn->mod->parent;
@@ -1586,16 +1663,16 @@ _sf_fcall (mod_t *mod, expr_t *e)
                   }
               }
 
-            for (size_t j = 0; j < fref->meta.pa_size; j++)
-              {
-                llnode_t *c = fref->meta.passargs[j]->meta.mem_ref;
+            // for (size_t j = 0; j < fref->meta.pa_size; j++)
+            //   {
+            //     llnode_t *c = fref->meta.passargs[j]->meta.mem_ref;
 
-                sf_ll_set_meta_refcount (c, c->meta.ref_count - 1);
-              }
+            //     sf_ll_set_meta_refcount (c, c->meta.ref_count - 1);
+            //   }
 
-            sffree (fref->meta.passargs);
-            fref->meta.passargs = NULL;
-            fref->meta.pa_size = 0;
+            // sffree (fref->meta.passargs);
+            // fref->meta.passargs = NULL;
+            // fref->meta.pa_size = 0;
 
             /*
              If return value is an argument (lvalue)
@@ -1758,20 +1835,42 @@ _sf_class_construct (mod_t *mod, obj_t *o, expr_t *e)
   mod_t *par_pres = nobj->mod->parent;
   nobj->mod->parent = NULL;
 
+  obj_t *oj = sf_ast_objnew (OBJ_CLASSOBJ);
+  oj->v.o_cobj.val = nobj;
+
+  llnode_t *oll = sf_ot_addobj (oj);
+
   for (size_t i = 0; vars[i] != NULL; i++)
     {
-      sf_mod_addVar (nobj->mod, vars[i], sf_mod_getVar (t->mod, vars[i]));
+      llnode_t *vl = sf_mod_getVar (t->mod, vars[i]);
+      obj_t *vlo = (obj_t *)vl->val;
+
+      if (vlo->type == OBJ_FUN)
+        {
+          /**
+           * There are instances when this condition if false.
+           * consider,
+           * class abc
+           *    a = putln
+           */
+          if (vlo->v.o_fun.uses_self)
+            {
+              obj_t *on = sf_ast_objnew (OBJ_FUN);
+              on->v.o_fun.uses_self = 1;
+              on->v.o_fun.f = vlo->v.o_fun.f;
+              on->v.o_fun.selfarg = oll;
+
+              vl = sf_ot_addobj (on);
+              sf_ll_set_meta_refcount (vl, vl->meta.ref_count + 1);
+            }
+        }
+      sf_mod_addVar (nobj->mod, vars[i], vl);
       sffree (vars[i]);
     }
 
   nobj->mod->parent = par_pres;
 
   sf_class_add (nobj);
-
-  obj_t *oj = sf_ast_objnew (OBJ_CLASSOBJ);
-  oj->v.o_cobj.val = nobj;
-
-  llnode_t *oll = sf_ot_addobj (oj);
 
   /**
    * We pass `oll` to _init ()

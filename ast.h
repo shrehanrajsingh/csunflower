@@ -358,6 +358,8 @@ struct _obj_s
     struct
     {
       fun_t *f;
+      int uses_self;
+      llnode_t *selfarg;
 
     } o_fun;
 

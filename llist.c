@@ -115,29 +115,44 @@ sf_ll_getnode_fromval (llnode_t *top, void *val, int (*cmrt) (void *, void *))
 SF_API void
 sf_ll_set_meta_refcount (llnode_t *node, int nval)
 {
-  if (node->meta.ref_count > nval && nval)
-    {
-      obj_t *p = (obj_t *)node->val;
-      // printf ("%d\n", p->type);
+  // if (node->meta.ref_count > nval && nval)
+  //   {
+  //     obj_t *p = (obj_t *)node->val;
+  //     printf ("%d\n", p->type);
 
-      if (p->meta.pa_size)
-        {
-          for (size_t i = 0; i < p->meta.pa_size; i++)
-            {
-              llnode_t *t = p->meta.passargs[i]->meta.mem_ref;
-              sf_ll_set_meta_refcount (t, t->meta.ref_count - 1);
-            }
+  //     if (p->meta.pa_size)
+  //       {
+  //         for (size_t i = 0; i < p->meta.pa_size; i++)
+  //           {
+  //             llnode_t *t = p->meta.passargs[i]->meta.mem_ref;
+  //             sf_ll_set_meta_refcount (t, t->meta.ref_count - 1);
+  //           }
 
-          sffree (p->meta.passargs);
-          p->meta.passargs = NULL;
-          p->meta.pa_size = 0;
-        }
-    }
+  //         sffree (p->meta.passargs);
+  //         p->meta.passargs = NULL;
+  //         p->meta.pa_size = 0;
+  //       }
+  //   }
 
   node->meta.ref_count = nval;
 
   if (node->meta.ref_count < 1)
     {
+      obj_t *p = (obj_t *)node->val;
+
+      if (p->meta.pa_size)
+        {
+          // for (size_t i = 0; i < p->meta.pa_size; i++)
+          //   {
+          //     llnode_t *t = p->meta.passargs[i]->meta.mem_ref;
+          //     sf_ll_set_meta_refcount (t, t->meta.ref_count - 1);
+          //   }
+
+          sffree (p->meta.passargs);
+          p->meta.passargs = NULL;
+          p->meta.pa_size = 0;
+        }
+
       // here;
       sf_ot_removeobj (node);
     }

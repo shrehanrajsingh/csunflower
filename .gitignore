@@ -2,5 +2,5 @@
 build/
 infrun.py
 .DS_STORE
-tests/dbg.sf
+tests/dgb.sf
 README.md.draft
