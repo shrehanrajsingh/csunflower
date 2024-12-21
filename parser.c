@@ -1194,6 +1194,60 @@ eval_expr (mod_t *mod, expr_t *e)
       }
       break;
 
+    case EXPR_AND:
+      {
+        llnode_t *lv = eval_expr (mod, e->v.e_and.lhs);
+
+        if (_sf_obj_isfalse (mod, lv->val))
+          r = lv;
+        else
+          {
+            r = eval_expr (mod, e->v.e_and.rhs);
+            sf_ll_set_meta_refcount (lv, lv->meta.ref_count);
+          }
+      }
+      break;
+
+    case EXPR_OR:
+      {
+        llnode_t *lv = eval_expr (mod, e->v.e_or.lhs);
+
+        if (!_sf_obj_isfalse (mod, lv->val))
+          r = lv;
+        else
+          r = eval_expr (mod, e->v.e_or.rhs);
+      }
+      break;
+
+    case EXPR_NOT:
+      {
+        llnode_t *vl = eval_expr (mod, e->v.e_not.v);
+
+        if (_sf_obj_isfalse (mod, vl->val))
+          {
+            obj_t *to = sf_ast_objnew (OBJ_CONST);
+            to->v.o_const.type = CONST_BOOL;
+            to->v.o_const.v.c_bool.v = 1;
+
+            r = sf_ot_addobj (to);
+          }
+        else
+          {
+            obj_t *to = sf_ast_objnew (OBJ_CONST);
+            to->v.o_const.type = CONST_BOOL;
+            to->v.o_const.v.c_bool.v = 0;
+
+            r = sf_ot_addobj (to);
+          }
+
+        /**
+         * if vl is an r-value,
+         * it will be cleared.
+         */
+        sf_ll_set_meta_refcount (vl, vl->meta.ref_count);
+      }
+      break;
+
     default:
       e_printf ("Unknown expression '%d' in eval_expr()\n", e->type);
       break;

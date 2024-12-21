@@ -60,6 +60,9 @@ enum
   EXPR_MEM_ACCESS = 15,
   EXPR_THIS = 16,
   EXPR_MAP = 17,
+  EXPR_AND = 18,
+  EXPR_OR = 19,
+  EXPR_NOT = 20,
 };
 
 enum // Used for both constant types for expr and obj_t
@@ -343,6 +346,16 @@ struct _expr_s
       size_t count;
 
     } e_map;
+
+    struct
+    {
+      struct _expr_s *lhs, *rhs;
+    } e_and, e_or;
+
+    struct
+    {
+      struct _expr_s *v;
+    } e_not;
 
   } v;
 };

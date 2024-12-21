@@ -258,10 +258,73 @@ sf_ast_exprgen (tok_t *arr, size_t len)
 
   /*
     Precedence in sunflower follows:
+    * `and`, `or`
     * `in` clause
     * `to step type` clause
     * arithmetic operators
   */
+
+  while (i < len)
+    {
+      tok_t c = arr[i];
+
+      if (c.type == TOK_OPERATOR)
+        {
+          sf_charptr p = c.v.t_op.v;
+
+          if (sf_str_inStr (")]}", p))
+            gb--;
+        }
+
+      if (gb)
+        goto l3;
+
+      if (c.type == TOK_OPERATOR)
+        {
+          sf_charptr p = c.v.t_op.v;
+
+          if (sf_str_inStr ("([{", p))
+            gb++;
+        }
+
+      if (c.type == TOK_IDENTIFIER && c.v.t_ident.is_reserved
+          && sf_str_eq_rCp (c.v.t_ident.v, "and") && !gb)
+        {
+          expr_t l = sf_ast_exprgen (arr, i),
+                 r = sf_ast_exprgen (arr + i + 1, len - i - 1);
+
+          res.type = EXPR_AND;
+          res.v.e_and.lhs = sfmalloc (sizeof (expr_t));
+          *res.v.e_and.lhs = l;
+
+          res.v.e_and.rhs = sfmalloc (sizeof (expr_t));
+          *res.v.e_and.rhs = r;
+
+          goto end;
+        }
+
+      if (c.type == TOK_IDENTIFIER && c.v.t_ident.is_reserved
+          && sf_str_eq_rCp (c.v.t_ident.v, "or") && !gb)
+        {
+          expr_t l = sf_ast_exprgen (arr, i),
+                 r = sf_ast_exprgen (arr + i + 1, len - i - 1);
+
+          res.type = EXPR_OR;
+          res.v.e_or.lhs = sfmalloc (sizeof (expr_t));
+          *res.v.e_or.lhs = l;
+
+          res.v.e_or.rhs = sfmalloc (sizeof (expr_t));
+          *res.v.e_or.rhs = r;
+
+          goto end;
+        }
+
+    l3:
+      i++;
+    }
+
+  i = 0;
+  gb = 0;
 
   /* check for `in` clause */
   while (i < len)
@@ -680,9 +743,23 @@ sf_ast_exprgen (tok_t *arr, size_t len)
                     goto end;
                   }
 
+#if !defined(SF_DISABLE_THIS)
                 else if (sf_str_eq_rCp (p, "this"))
                   {
                     res.type = EXPR_THIS;
+                  }
+#endif
+
+                else if (sf_str_eq_rCp (p, "not"))
+                  {
+                    assert (res.type == -1);
+                    res.type = EXPR_NOT;
+                    expr_t r = sf_ast_exprgen (arr + i + 1, len - i - 1);
+
+                    res.v.e_not.v = sfmalloc (sizeof (expr_t));
+                    *res.v.e_not.v = r;
+
+                    goto end;
                   }
               }
 
@@ -2586,6 +2663,31 @@ sf_ast_exprprint (expr_t e)
             printf ("val %d\n", i);
             sf_ast_exprprint (e.v.e_map.vals[i]);
           }
+      }
+      break;
+
+    case EXPR_OR:
+      {
+        printf ("expr_or\nlhs\n");
+        sf_ast_exprprint (*e.v.e_or.lhs);
+        printf ("rhs\n");
+        sf_ast_exprprint (*e.v.e_or.rhs);
+      }
+      break;
+
+    case EXPR_AND:
+      {
+        printf ("expr_and\nlhs\n");
+        sf_ast_exprprint (*e.v.e_and.lhs);
+        printf ("rhs\n");
+        sf_ast_exprprint (*e.v.e_and.rhs);
+      }
+      break;
+
+    case EXPR_NOT:
+      {
+        printf ("expr_not\n");
+        sf_ast_exprprint (*e.v.e_not.v);
       }
       break;
 

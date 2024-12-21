@@ -1,25 +1,7 @@
-class Node
-    v = none
-    next = none
+a = true and false or not true
+b = not false and true or false and true
+c = not true and true or false and not false
 
-    fun _init (this, a)
-        this.v = a
-
-    fun print (this)
-        put ("Node value: ")
-        putln (this.v)
-
-a = 1 to 10
-cur = dummy = Node (0)
-
-for i in a
-    cur.next = Node (i)
-    cur = cur.next
-
-fun nxt(d)
-    return d.print
-
-p = nxt(dummy)
-prc(p)
-p()
-p()
+putln (a)
+putln (b)
+putln (c)
