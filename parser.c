@@ -1248,6 +1248,36 @@ eval_expr (mod_t *mod, expr_t *e)
       }
       break;
 
+    case EXPR_WHERE:
+      {
+        expr_t *pv = e->v.e_where.prev_expr;
+        sf_charptr *nms = e->v.e_where.vnames;
+        expr_t *vls = e->v.e_where.vvals;
+
+        mod_t *nm = sf_mod_new (mod->type, NULL);
+
+        for (size_t j = 0; j < e->v.e_where.vsize; j++)
+          {
+            llnode_t *f = eval_expr (mod, (expr_t *)(expr_t[]){ vls[j] });
+            sf_mod_addVar (nm, SFCPTR_TOSTR (nms[j]), f);
+          }
+
+        nm->parent = mod;
+        r = eval_expr (nm, pv);
+        int pres_rc = r->meta.ref_count;
+        sf_ll_set_meta_refcount (r, pres_rc + 1);
+
+        nm->parent = NULL;
+        sf_mod_free (nm);
+
+        //! MANUAL OVERRIDE
+        r->meta.ref_count = pres_rc - 1;
+
+        if (r->meta.ref_count < 0)
+          r->meta.ref_count = 0;
+      }
+      break;
+
     default:
       e_printf ("Unknown expression '%d' in eval_expr()\n", e->type);
       break;

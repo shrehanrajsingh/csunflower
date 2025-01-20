@@ -258,11 +258,146 @@ sf_ast_exprgen (tok_t *arr, size_t len)
 
   /*
     Precedence in sunflower follows:
+    * `where`
     * `and`, `or`
     * `in` clause
     * `to step type` clause
     * arithmetic operators
   */
+
+  while (i < len)
+    {
+      tok_t c = arr[i];
+
+      if (c.type == TOK_OPERATOR)
+        {
+          sf_charptr p = c.v.t_op.v;
+
+          if (sf_str_inStr (")]}", p))
+            gb--;
+        }
+
+      if (gb)
+        goto l4;
+
+      if (c.type == TOK_OPERATOR)
+        {
+          sf_charptr p = c.v.t_op.v;
+
+          if (sf_str_inStr ("([{", p))
+            gb++;
+        }
+
+      if (c.type == TOK_IDENTIFIER && c.v.t_ident.is_reserved
+          && sf_str_eq_rCp (c.v.t_ident.v, "where") && !gb)
+        {
+          /*
+            `where` clause uses strict syntax structures
+            Usage:
+            <preceding_expr> where <vname_1> = <vval>, <vname_2> = <vval>
+           */
+          int comma_count = 0;
+          int gb1 = 0;
+
+          for (size_t j = i + 1; j < len; j++)
+            {
+              tok_t *d = &arr[j];
+
+              if (d->type == TOK_OPERATOR)
+                {
+                  sf_charptr *op = &d->v.t_op.v;
+
+                  if (sf_str_inStr ("([{", *op))
+                    gb1++;
+
+                  if (sf_str_inStr (")]}", *op))
+                    gb1--;
+
+                  if (sf_str_eq_rCp (*op, ",") && !gb1)
+                    comma_count++;
+                }
+            }
+
+          sf_charptr *vnms
+              = sfmalloc ((comma_count + 1) * sizeof (sf_charptr));
+          expr_t *vls = sfmalloc ((comma_count + 1) * sizeof (expr_t));
+          size_t vc = 0;
+          gb1 = 0;
+
+          for (size_t j = i + 1; j < len; j++)
+            {
+              tok_t *d = &arr[j];
+
+              if (d->type == TOK_OPERATOR)
+                {
+                  sf_charptr *op = &d->v.t_op.v;
+
+                  if (sf_str_inStr ("([{", *op))
+                    gb1++;
+
+                  if (sf_str_inStr (")]}", *op))
+                    gb1--;
+
+                  if (sf_str_eq_rCp (*op, "=") && !gb1)
+                    {
+                      assert (arr[j - 1].type == TOK_IDENTIFIER
+                              && "Syntax Error.");
+
+                      vnms[vc] = arr[j - 1].v.t_ident.v;
+
+                      int gb2 = 0;
+                      size_t edidx = j;
+
+                      for (size_t k = j + 1; k < len; k++)
+                        {
+                          tok_t *e = &arr[k];
+
+                          if (e->type == TOK_OPERATOR)
+                            {
+                              sf_charptr *op = &e->v.t_op.v;
+
+                              if (sf_str_inStr ("([{", *op))
+                                gb2++;
+
+                              if (sf_str_inStr (")]}", *op))
+                                gb2--;
+
+                              if (sf_str_eq_rCp (*op, ",") && !gb2)
+                                {
+                                  edidx = k;
+                                  break;
+                                }
+                            }
+                        }
+
+                      if (edidx == j)
+                        edidx = len;
+
+                      vls[vc] = sf_ast_exprgen (arr + j + 1, edidx - j - 1);
+
+                      j = edidx;
+                      vc++;
+                    }
+                }
+            }
+
+          res.type = EXPR_WHERE;
+          res.v.e_where.prev_expr = sfmalloc (sizeof (expr_t));
+
+          *res.v.e_where.prev_expr = sf_ast_exprgen (arr, i);
+          res.v.e_where.vnames = vnms;
+          res.v.e_where.vsize = vc;
+          res.v.e_where.vvals = vls;
+
+          goto end;
+        }
+
+    l4:
+      i++;
+    }
+
+  i = 0;
+  gb = 0;
 
   while (i < len)
     {
@@ -2688,6 +2823,20 @@ sf_ast_exprprint (expr_t e)
       {
         printf ("expr_not\n");
         sf_ast_exprprint (*e.v.e_not.v);
+      }
+      break;
+
+    case EXPR_WHERE:
+      {
+        printf ("expr_where\nprev_expr: ");
+        sf_ast_exprprint (*e.v.e_where.prev_expr);
+        printf ("variables (%d)\n", e.v.e_where.vsize);
+
+        for (size_t i = 0; i < e.v.e_where.vsize; i++)
+          {
+            printf ("%s = ", SFCPTR_TOSTR (e.v.e_where.vnames[i]));
+            sf_ast_exprprint (e.v.e_where.vvals[i]);
+          }
       }
       break;
 

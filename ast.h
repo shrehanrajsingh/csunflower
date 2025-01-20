@@ -63,6 +63,7 @@ enum
   EXPR_AND = 18,
   EXPR_OR = 19,
   EXPR_NOT = 20,
+  EXPR_WHERE = 21,
 };
 
 enum // Used for both constant types for expr and obj_t
@@ -356,6 +357,19 @@ struct _expr_s
     {
       struct _expr_s *v;
     } e_not;
+
+    /*
+      `where` clause uses strict syntax structures
+      Usage:
+      <preceding_expr> where <vname_1> = <vval>, <vname_2> = <vval>
+      */
+    struct
+    {
+      struct _expr_s *prev_expr;
+      sf_charptr *vnames;
+      struct _expr_s *vvals;
+      size_t vsize;
+    } e_where;
 
   } v;
 };

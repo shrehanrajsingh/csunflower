@@ -1,7 +1,2 @@
-a = true and false or not true
-b = not false and true or false and true
-c = not true and true or false and not false
-
-putln (a)
-putln (b)
-putln (c)
+x = a + b where a = 20, b = 30
+putln(x)
