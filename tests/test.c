@@ -301,6 +301,21 @@ super_fun_rt (mod_t *mod)
 }
 
 llnode_t *
+int_fun_rt (mod_t *mod)
+{
+  obj_t *o1 = (obj_t *)sf_mod_getVar (mod, "str")->val;
+
+  assert (o1->type == OBJ_CONST && o1->v.o_const.type == CONST_STRING
+          && "int() expects a string.");
+
+  obj_t *rt = sf_ast_objnew (OBJ_CONST);
+  rt->v.o_const.type = CONST_INT;
+  rt->v.o_const.v.c_int.v = atoi (SFCPTR_TOSTR (o1->v.o_const.v.c_string.v));
+
+  return sf_ot_addobj (rt);
+}
+
+llnode_t *
 nativemethod_type_str_name_operator_plus (mod_t *mod)
 {
   obj_t *self = (obj_t *)sf_mod_getVar (mod, "self")->val;
@@ -658,6 +673,31 @@ test5 ()
     sp_obj->v.o_fun.f = sfp;
 
     sf_mod_addVar (m, "super", sf_ot_addobj (sp_obj));
+  }
+
+  /********************************************* */
+  /********************************************* */
+  /* int(str) function */
+
+  {
+    mod_t *int_mod = sf_mod_new (MOD_TYPE_FUNC, NULL);
+    obj_t *str_obj = sf_ast_objnew (OBJ_CONST);
+
+    str_obj->v.o_const.type = CONST_STRING;
+    str_obj->v.o_const.v.c_string.v = sf_str_new_fromStr ("");
+
+    sf_mod_addVar (int_mod, "str", sf_ot_addobj (str_obj));
+
+    fun_t *int_fun = sf_fun_new ("int", SF_FUN_NATIVE, int_mod, int_fun_rt);
+
+    sf_fun_addarg (int_fun, "str");
+
+    fun_t *ifp = sf_fun_add (int_fun);
+
+    obj_t *ir_obj = sf_ast_objnew (OBJ_FUN);
+    ir_obj->v.o_fun.f = ifp;
+
+    sf_mod_addVar (m, "int", sf_ot_addobj (ir_obj));
   }
 
   /********************************************* */
