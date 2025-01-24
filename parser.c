@@ -1300,11 +1300,9 @@ _sf_exec_block_for (mod_t *mod, int i)
   stmt_t *t = &mod->body[i];
   expr_t *cn = t->v.blk_for.cond;
 
-  stmt_t *body_pres = mod->body;
-  size_t bl_pres = mod->body_len;
-
-  mod->body = t->v.blk_for.body;
-  mod->body_len = t->v.blk_for.body_count;
+  mod_t *fm = sf_mod_new (mod->type, mod);
+  fm->body = t->v.blk_for.body;
+  fm->body_len = t->v.blk_for.body_count;
 
   int got_break_signal = 0;
 
@@ -1331,7 +1329,7 @@ _sf_exec_block_for (mod_t *mod, int i)
                     {
                       const sf_charptr vname = lv->v.var.name;
 
-                      sf_mod_addVar (mod, SFCPTR_TOSTR (vname), rt->vals[i]);
+                      sf_mod_addVar (fm, SFCPTR_TOSTR (vname), rt->vals[i]);
                     }
                   else
                     {
@@ -1343,7 +1341,7 @@ _sf_exec_block_for (mod_t *mod, int i)
                       */
                     }
 
-                  sf_parser_exec (mod);
+                  sf_parser_exec (fm);
                   // TODO: check for signals like continue, break
                 }
             }
@@ -1372,7 +1370,7 @@ _sf_exec_block_for (mod_t *mod, int i)
                             oref->v.o_const.v.c_string.v = sf_str_new_empty ();
                             sf_str_pushchr (&oref->v.o_const.v.c_string.v, c);
 
-                            sf_mod_addVar (mod, SFCPTR_TOSTR (vname),
+                            sf_mod_addVar (fm, SFCPTR_TOSTR (vname),
                                            sf_ot_addobj (oref));
                           }
                         else
@@ -1385,7 +1383,7 @@ _sf_exec_block_for (mod_t *mod, int i)
                             */
                           }
 
-                        sf_parser_exec (mod);
+                        sf_parser_exec (fm);
                         // TODO: check for signals like continue, break
                       }
                   }
@@ -1415,23 +1413,16 @@ _sf_exec_block_for (mod_t *mod, int i)
       break;
     }
 
-  mod->body = body_pres;
-  mod->body_len = bl_pres;
-
   if (i + 1 < mod->body_len && !got_break_signal
       && mod->body[i + 1].type == STMT_ELSE_BLOCK)
     {
-      body_pres = mod->body;
-      bl_pres = mod->body_len;
+      fm->body = mod->body[i + 1].v.blk_else.body;
+      fm->body_len = mod->body[i + 1].v.blk_else.body_count;
 
-      mod->body = body_pres[i + 1].v.blk_else.body;
-      mod->body_len = body_pres[i + 1].v.blk_else.body_count;
-
-      sf_parser_exec (mod);
-
-      mod->body = body_pres;
-      mod->body_len = bl_pres;
+      sf_parser_exec (fm);
     }
+
+  sf_mod_free (fm);
 }
 
 void
