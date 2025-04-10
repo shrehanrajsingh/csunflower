@@ -1,3 +1,67 @@
-a = int(input('Enter a number: '))
-put ('The square of the number is: ')
-putln (a * a)
+class JsonParser
+
+    _jobj = none
+    _rawstr = none
+    _buf_c = 1
+
+    fun _init(self, rawstr)
+        self._jobj = {}
+        self._rawstr = rawstr
+        self.parse()
+    
+    fun parse_val(self, v)
+        l = 0
+        r = len(v) - 1
+
+        while v[l] == ' '
+            l = l + 1
+        
+        while v[r] == ' '
+            r = r - 1
+
+        p = ''
+        for i in l to r + 1
+            p = p + v[i]
+        
+        return p
+    
+    fun parse(self)
+        curr_key = ''
+        curr_val = ''
+        saw_colon = false
+        in_quotes = false
+        l = len(self._rawstr)
+
+        while self._buf_c < l
+            b = self._buf_c
+            c = self._rawstr[b]
+            jmp = false
+
+            if c == ':'
+                saw_colon = true
+                jmp = true
+            
+            if jmp == false
+                if c == '"'
+                    if in_quotes
+                        in_quotes = false
+                    else
+                        in_quotes = true
+                if (c == ',' or c == '}') and (in_quotes == false)
+                    self._jobj[curr_key] = self.parse_val(curr_val)
+
+                    curr_key = ''
+                    curr_val = ''
+                    saw_colon = false
+                
+                if saw_colon
+                    curr_val = curr_val + c
+                else
+                    if in_quotes and c != '"'
+                        curr_key = curr_key + c
+
+            self._buf_c = self._buf_c + 1
+        
+
+x = JsonParser("{\"a\": 10, \"b\": 20}")
+putln (x._jobj)

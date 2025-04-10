@@ -57,6 +57,15 @@ sf_mod_addVar (mod_t *mod, char *name, llnode_t *ref)
 
           mod->varhist[mod->vhcount - 1] = sf_str_new_fromStr (name);
         }
+      else
+        {
+          /* variable is somewhere in higher scope */
+          if (mod->type != MOD_TYPE_FUNC && mod->type != MOD_TYPE_CLASS)
+            {
+              ref->meta.ref_count--;
+              return sf_mod_addVar (mod->parent, name, ref);
+            }
+        }
 
       sf_ll_set_meta_refcount (l, l->meta.ref_count - 1);
     }

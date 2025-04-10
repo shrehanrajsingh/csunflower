@@ -747,6 +747,29 @@ eval_expr (mod_t *mod, expr_t *e)
                               }
                               break;
 
+                            case CONST_FLOAT:
+                              {
+                                int p = val->v.o_const.v.c_float
+                                            .v; /* truncate float */
+
+                                assert (p > -1
+                                        && p < strlen (SFCPTR_TOSTR (
+                                               name->v.o_const.v.c_string.v)));
+
+                                obj_t *ro = sf_ast_objnew (OBJ_CONST);
+                                ro->v.o_const.type = CONST_STRING;
+                                ro->v.o_const.v.c_string.v
+                                    = sf_str_new_empty ();
+
+                                sf_str_pushchr (
+                                    &ro->v.o_const.v.c_string.v,
+                                    SFCPTR_TOSTR (
+                                        name->v.o_const.v.c_string.v)[p]);
+
+                                r = sf_ot_addobj (ro);
+                              }
+                              break;
+
                             default:
                               break;
                             }
@@ -1300,7 +1323,7 @@ _sf_exec_block_for (mod_t *mod, int i)
   stmt_t *t = &mod->body[i];
   expr_t *cn = t->v.blk_for.cond;
 
-  mod_t *fm = sf_mod_new (mod->type, mod);
+  mod_t *fm = sf_mod_new (MOD_TYPE_FILE /* DO NOT USE mod->type */, NULL);
   fm->body = t->v.blk_for.body;
   fm->body_len = t->v.blk_for.body_count;
 
@@ -1321,10 +1344,11 @@ _sf_exec_block_for (mod_t *mod, int i)
           {
           case OBJ_ARRAY:
             {
-              const array_t *rt = robj->v.o_array.v;
+              array_t *rt = robj->v.o_array.v;
 
               for (size_t i = 0; i < rt->len; i++)
                 {
+                  fm->parent = NULL;
                   if (lv->type == EXPR_VAR)
                     {
                       const sf_charptr vname = lv->v.var.name;
@@ -1341,6 +1365,7 @@ _sf_exec_block_for (mod_t *mod, int i)
                       */
                     }
 
+                  fm->parent = mod;
                   sf_parser_exec (fm);
                   // TODO: check for signals like continue, break
                 }
@@ -1428,33 +1453,61 @@ _sf_exec_block_for (mod_t *mod, int i)
 void
 _sf_exec_block_while (mod_t *mod, int i)
 {
-  stmt_t *t = &mod->body[i];
-  llnode_t *cll = eval_expr (mod, t->v.blk_while.cond);
+  /**
+   * !Deprecated routine
+   * Do not use
+   */
+  // stmt_t *t = &mod->body[i];
+  // llnode_t *cll = eval_expr (mod, t->v.blk_while.cond);
 
-  sf_ll_set_meta_refcount (cll, cll->meta.ref_count + 1);
+  // sf_ll_set_meta_refcount (cll, cll->meta.ref_count + 1);
 
-  obj_t *clv = (obj_t *)cll->val;
+  // obj_t *clv = (obj_t *)cll->val;
 
-  stmt_t *pres_st = mod->body;
-  size_t pres_size = mod->body_len;
+  // stmt_t *pres_st = mod->body;
+  // size_t pres_size = mod->body_len;
 
-  mod->body = t->v.blk_while.body;
-  mod->body_len = t->v.blk_while.body_count;
+  // mod->body = t->v.blk_while.body;
+  // mod->body_len = t->v.blk_while.body_count;
 
-  while (!_sf_obj_isfalse (mod, clv))
+  // while (!_sf_obj_isfalse (mod, clv))
+  //   {
+  //     sf_parser_exec (mod);
+
+  //     sf_ll_set_meta_refcount (cll, cll->meta.ref_count - 1);
+  //     cll = eval_expr (mod, t->v.blk_while.cond);
+  //     clv = (obj_t *)cll->val;
+  //     sf_ll_set_meta_refcount (cll, cll->meta.ref_count + 1);
+  //   }
+
+  // mod->body = pres_st;
+  // mod->body_len = pres_size;
+
+  // sf_ll_set_meta_refcount (cll, cll->meta.ref_count - 1);
+
+  /* rewritten with a separate module for loop body */
+  stmt_t *c = &mod->body[i];
+
+  mod_t *lp_body = sf_mod_new (MOD_TYPE_FILE, NULL);
+  lp_body->body = c->v.blk_while.body;
+  lp_body->body_len = c->v.blk_while.body_count;
+
+  llnode_t *cnd_eval = eval_expr (mod, c->v.blk_while.cond);
+  obj_t *ce_o = cnd_eval->val;
+
+  lp_body->parent = mod;
+  while (!_sf_obj_isfalse (lp_body, ce_o))
     {
-      sf_parser_exec (mod);
+      sf_parser_exec (lp_body);
 
-      sf_ll_set_meta_refcount (cll, cll->meta.ref_count - 1);
-      cll = eval_expr (mod, t->v.blk_while.cond);
-      clv = (obj_t *)cll->val;
-      sf_ll_set_meta_refcount (cll, cll->meta.ref_count + 1);
+      /* rvalue state check */
+      sf_ll_set_meta_refcount (cnd_eval, cnd_eval->meta.ref_count);
+      cnd_eval = eval_expr (lp_body, c->v.blk_while.cond);
+      ce_o = cnd_eval->val;
     }
 
-  mod->body = pres_st;
-  mod->body_len = pres_size;
-
-  sf_ll_set_meta_refcount (cll, cll->meta.ref_count - 1);
+  sf_ll_set_meta_refcount (cnd_eval, cnd_eval->meta.ref_count);
+  sf_mod_free (lp_body);
 }
 
 int
@@ -1698,8 +1751,13 @@ _sf_fcall (mod_t *mod, expr_t *e)
                 sf_mod_addVar (nmod, fn->args[0], fref->v.o_fun.selfarg);
               }
 
-            for (size_t j = fref->v.o_fun.uses_self;
-                 j < e->v.fun_call.arg_count; j++)
+            // if (!strcmp (fn->name, "parse_val"))
+            //   {
+            //     printf ("%d %d %d %d\n", fn->argc, fref->v.o_fun.f->argc,
+            //             fref->v.o_fun.uses_self, e->v.fun_call.arg_count);
+            //   }
+
+            for (size_t j = 0; j < e->v.fun_call.arg_count; j++)
               {
                 // expr_t *ee = sfmalloc (sizeof (*ee));
                 // *ee = e->v.fun_call.args[j];
@@ -1709,6 +1767,8 @@ _sf_fcall (mod_t *mod, expr_t *e)
                 // sffree (ee);
                 // printf ("%s\n", fn->args[j]);
                 // printf ("%d\n", on->meta.ref_count);
+                // printf ("%s %s\n", fn->name,
+                //         fn->args[j + fref->v.o_fun.uses_self]);
                 sf_mod_addVar (nmod, fn->args[j + fref->v.o_fun.uses_self],
                                on);
               }
@@ -2394,7 +2454,7 @@ sf_parser_objRepr (mod_t *mod, obj_t *obj)
             {
               char *r = sfmalloc (32 * sizeof (*r));
 
-              sprintf (r, "%g", obj->v.o_const.v.c_float.v);
+              sprintf (r, "%f", obj->v.o_const.v.c_float.v);
 
               res = sf_str_new_fromStr (r);
 
